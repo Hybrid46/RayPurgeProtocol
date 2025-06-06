@@ -20,8 +20,8 @@ class Raycaster
 
     const int WIDTH = 800;
     const int HEIGHT = 600;
-    const int INTERNAL_WIDTH = 400;
-    const int INTERNAL_HEIGHT = 300;
+    const int INTERNAL_WIDTH = 200;
+    const int INTERNAL_HEIGHT = 150;
     const int TEXTURE_SIZE = 64;
 
     // Mini-map settings
@@ -69,6 +69,7 @@ class Raycaster
     static RenderTexture2D renderTarget;
 
     static float[] zBuffer = new float[INTERNAL_WIDTH];
+    static float maxZ = 0f;
 
     static void LoadTextures()
     {
@@ -88,7 +89,7 @@ class Raycaster
 
         renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
 
-        Texture2D enemyTex = Raylib.LoadTexture("enemy.png");
+        Texture2D enemyTex = Raylib.LoadTexture("Assets/enemy.png");
         sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
     }
 
@@ -116,6 +117,8 @@ class Raycaster
 
             // Size scaling
             int spriteHeight = Math.Abs((int)(INTERNAL_HEIGHT / transformY));
+            if (spriteHeight < 2) continue;
+
             int spriteWidth = spriteHeight;
 
             // Destination rectangle (on screen)
@@ -133,7 +136,7 @@ class Raycaster
             int startX = (int)Math.Clamp(dest.X, 0, INTERNAL_WIDTH);
             int endX = (int)Math.Clamp(dest.X + dest.Width, 0, INTERNAL_WIDTH);
 
-            bool occluded = false;
+            bool occluded = true;
             for (int x = startX; x < endX; x++)
             {
                 if (transformY > 0 && x >= 0 && x < INTERNAL_WIDTH && transformY < zBuffer[x])
@@ -141,16 +144,25 @@ class Raycaster
                     occluded = false;
                     break;
                 }
-                else
-                {
-                    occluded = true;
-                }
             }
 
             if (!occluded)
             {
                 Raylib.DrawTexturePro(sprite.Texture, source, dest, Vector2.Zero, 0, Color.White);
             }
+        }
+    }
+
+    static void DrawZBuffer()
+    {
+        for (int x = 0; x < INTERNAL_WIDTH; x++)
+        {
+            float depth = zBuffer[x];
+            float normalized = maxZ / depth;
+            float brightness = (int)(255f - normalized * 50f);
+            Color color = new Color(brightness, brightness, brightness, 255);
+
+            Raylib.DrawPixel(x, INTERNAL_HEIGHT - 1, color);
         }
     }
 
@@ -209,6 +221,10 @@ class Raycaster
         Raylib.BeginTextureMode(renderTarget);
         Raylib.ClearBackground(SkyColor);
         Raylib.DrawRectangle(0, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2, GroundColor);
+
+        // Reset z-buffer
+        Array.Fill(zBuffer, float.MaxValue);
+        maxZ = 0f;
 
         for (int x = 0; x < INTERNAL_WIDTH; x++)
         {
@@ -272,7 +288,10 @@ class Raycaster
                     (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
                     (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
                 perpWallDist = MathF.Abs(perpWallDist);
+
+                //ZBuffer
                 zBuffer[x] = perpWallDist;
+                if (zBuffer[x] > maxZ && zBuffer[x] < float.MaxValue) maxZ = zBuffer[x];
 
                 // Calculate wall height
                 int lineHeight = (int)(INTERNAL_HEIGHT / perpWallDist);
@@ -317,6 +336,9 @@ class Raycaster
             }
         }
 
+        DrawSprites();
+        DrawZBuffer();
+
         Raylib.EndTextureMode();
     }
 
@@ -330,14 +352,14 @@ class Raycaster
         while (!Raylib.WindowShouldClose())
         {
             // Handle input
-            if (Raylib.IsKeyDown(KeyboardKey.A))
+            if (Raylib.IsKeyDown(KeyboardKey.D))
             {
                 // Rotate left using matrix multiplication
                 playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(ROT_SPEED));
                 cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(ROT_SPEED));
             }
 
-            if (Raylib.IsKeyDown(KeyboardKey.D))
+            if (Raylib.IsKeyDown(KeyboardKey.A))
             {
                 // Rotate right using matrix multiplication
                 playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-ROT_SPEED));
@@ -364,22 +386,29 @@ class Raycaster
                 }
             }
 
-            if (Raylib.IsKeyDown(KeyboardKey.E))
-            {
-                Vector2 newPos = playerPos - new Vector2(playerDir.Y, -playerDir.X) * MOVE_SPEED;
-                if (MAP[(int)newPos.Y, (int)newPos.X] == 0) playerPos = newPos;
-            }
-
             if (Raylib.IsKeyDown(KeyboardKey.Q))
             {
                 Vector2 newPos = playerPos + new Vector2(playerDir.Y, -playerDir.X) * MOVE_SPEED;
-                if (MAP[(int)newPos.Y, (int)newPos.X] == 0) playerPos = newPos;
+                if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+                    MAP[(int)newPos.Y, (int)newPos.X] == 0)
+                {
+                    playerPos = newPos;
+                }
+            }
+
+            if (Raylib.IsKeyDown(KeyboardKey.E))
+            {
+                Vector2 newPos = playerPos - new Vector2(playerDir.Y, -playerDir.X) * MOVE_SPEED;
+                if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+                    MAP[(int)newPos.Y, (int)newPos.X] == 0)
+                {
+                    playerPos = newPos;
+                }
             }
 
             // Update the 3D view
             CastRays();
-            DrawSprites();
-
+            
             // Drawing
             Raylib.BeginDrawing();
             Raylib.ClearBackground(Color.Black);
