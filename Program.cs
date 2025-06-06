@@ -155,14 +155,40 @@ class Raycaster
 
     static void DrawZBuffer()
     {
-        for (int x = 0; x < INTERNAL_WIDTH; x++)
-        {
-            float depth = zBuffer[x];
-            float normalized = maxZ / depth;
-            float brightness = (int)(255f - normalized * 50f);
-            Color color = new Color(brightness, brightness, brightness, 255);
+        if (maxZ <= 0) return;
 
-            Raylib.DrawPixel(x, INTERNAL_HEIGHT - 1, color);
+        // Draw depth buffer as a gradient at the bottom
+        int debugHeight = INTERNAL_HEIGHT / 4; // Use 25% of screen height
+        for (int y = 0; y < debugHeight; y++)
+        {
+            for (int x = 0; x < INTERNAL_WIDTH; x++)
+            {
+                if (zBuffer[x] == float.MaxValue) continue;
+
+                float normalized = zBuffer[x] / maxZ;
+                float brightness = 1.0f - normalized;
+
+                // Create gradient effect vertically
+                float verticalFactor = 1.0f - (float)y / debugHeight;
+                brightness *= verticalFactor;
+
+                // Apply exponential falloff for better visual range
+                brightness = MathF.Pow(brightness, 0.5f);
+
+                int intensity = (int)(brightness * 255);
+                Color color = new Color(intensity, intensity, intensity, 255);
+
+                Raylib.DrawPixel(x, INTERNAL_HEIGHT - debugHeight + y, color);
+            }
+        }
+
+        // Draw depth scale markers
+        for (int i = 0; i <= 5; i++)
+        {
+            float depth = maxZ * i / 5;
+            string text = $"{depth:F1}";
+            int yPos = INTERNAL_HEIGHT - debugHeight / 2;
+            Raylib.DrawText(text, i * INTERNAL_WIDTH / 5, yPos, 6, Color.Red);
         }
     }
 
@@ -408,7 +434,7 @@ class Raycaster
 
             // Update the 3D view
             CastRays();
-            
+
             // Drawing
             Raylib.BeginDrawing();
             Raylib.ClearBackground(Color.Black);
