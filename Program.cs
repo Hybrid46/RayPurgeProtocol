@@ -8,16 +8,29 @@ class Raycaster
     {
         public Vector2 Position;
         public Texture2D Texture;
+        public Color[] TextureData;
 
         public Sprite(Vector2 position, Texture2D texture)
         {
             Position = position;
             Texture = texture;
+            TextureData = new Color[texture.Width * texture.Height];
+
+            Image textureImage = Raylib.LoadImageFromTexture(texture);
+
+            for (int y = 0; y < texture.Height; y++)
+            {
+                for (int x = 0; x < texture.Width; x++)
+                {
+                    TextureData[y * texture.Width + x] = Raylib.GetImageColor(textureImage, x, y);
+                }
+            }
+
+            Raylib.UnloadImage(textureImage);
         }
     }
 
     static List<Sprite> sprites = new();
-
     const int WIDTH = 800;
     const int HEIGHT = 600;
     const int INTERNAL_WIDTH = 200;
@@ -90,6 +103,8 @@ class Raycaster
         renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
 
         Texture2D enemyTex = Raylib.LoadTexture("Assets/enemy.png");
+        Raylib.SetTextureFilter(enemyTex, TextureFilter.Bilinear);
+
         sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
     }
 
@@ -110,45 +125,64 @@ class Raycaster
             float transformX = invDet * (playerDir.Y * spriteRel.X - playerDir.X * spriteRel.Y);
             float transformY = invDet * (-cameraPlane.Y * spriteRel.X + cameraPlane.X * spriteRel.Y);
 
-            if (transformY <= 0) continue; // Sprite is behind the camera
-
             // Projected screen position
-            int spriteScreenX = (int)((INTERNAL_WIDTH / 2) * (1 + transformX / transformY));
+            if (transformY <= 0) continue;
 
-            // Size scaling
+            int spriteScreenX = (int)((INTERNAL_WIDTH / 2) * (1 + transformX / transformY));
             int spriteHeight = Math.Abs((int)(INTERNAL_HEIGHT / transformY));
             if (spriteHeight < 2) continue;
 
             int spriteWidth = spriteHeight;
 
-            // Destination rectangle (on screen)
-            Rectangle dest = new Rectangle(
-                spriteScreenX - spriteWidth / 2,
-                INTERNAL_HEIGHT / 2 - spriteHeight / 2,
-                spriteWidth,
-                spriteHeight
-            );
+            // Calculate draw boundaries
+            int drawStartX = Math.Clamp(spriteScreenX - spriteWidth / 2, 0, INTERNAL_WIDTH);
+            int drawEndX = Math.Clamp(spriteScreenX + spriteWidth / 2, 0, INTERNAL_WIDTH);
 
-            // Source rectangle (from texture)
-            Rectangle source = new Rectangle(0, 0, sprite.Texture.Width, sprite.Texture.Height);
-
-            // Depth check using zBuffer (clip horizontally)
-            int startX = (int)Math.Clamp(dest.X, 0, INTERNAL_WIDTH);
-            int endX = (int)Math.Clamp(dest.X + dest.Width, 0, INTERNAL_WIDTH);
-
-            bool occluded = true;
-            for (int x = startX; x < endX; x++)
+            // Draw column by column
+            for (int stripe = drawStartX; stripe < drawEndX; stripe++)
             {
-                if (transformY > 0 && x >= 0 && x < INTERNAL_WIDTH && transformY < zBuffer[x])
+                // Skip if behind wall
+                if (transformY > zBuffer[stripe]) continue;
+
+                // Calculate texture X coordinate
+                int texX = (int)((stripe - (spriteScreenX - spriteWidth / 2)) *
+                                sprite.Texture.Width / spriteWidth);
+
+                // Vertical line parameters
+                int drawStartY = Math.Clamp(-spriteHeight / 2 + INTERNAL_HEIGHT / 2, 0, INTERNAL_HEIGHT);
+                int drawEndY = Math.Clamp(spriteHeight / 2 + INTERNAL_HEIGHT / 2, 0, INTERNAL_HEIGHT);
+
+                // Calculate texture stepping
+                float stepY = (float)sprite.Texture.Height / spriteHeight;
+                float texYPos = (drawStartY - INTERNAL_HEIGHT / 2f + spriteHeight / 2f) * stepY;
+
+                // Draw vertical stripe
+                for (int y = drawStartY; y < drawEndY; y++)
                 {
-                    occluded = false;
-                    break;
-                }
-            }
+                    int texY = (int)texYPos;
+                    if (texY >= sprite.Texture.Height) texY = sprite.Texture.Height - 1;
 
-            if (!occluded)
-            {
-                Raylib.DrawTexturePro(sprite.Texture, source, dest, Vector2.Zero, 0, Color.White);
+                    Color color = sprite.TextureData[texY * sprite.Texture.Width + texX];
+
+                    // Skip transparent pixels
+                    if (color.A == 0)
+                    {
+                        texYPos += stepY;
+                        continue;
+                    }
+
+                    // Apply distance shading
+                    float shade = Math.Clamp(1.0f - transformY * 0.03f, 0.3f, 1.0f);
+                    color = new Color(
+                        (byte)(color.R * shade),
+                        (byte)(color.G * shade),
+                        (byte)(color.B * shade),
+                        color.A
+                    );
+
+                    Raylib.DrawPixel(stripe, y, color);
+                    texYPos += stepY;
+                }
             }
         }
     }
@@ -287,6 +321,7 @@ class Raycaster
             // DDA
             int side = 0;
             bool hit = false;
+
             while (!hit)
             {
                 if (sideDist.X < sideDist.Y)
