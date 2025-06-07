@@ -79,7 +79,7 @@ class Raycaster
     static Color EnemyColor = new Color(255, 0, 0, 255);
 
     // Textures
-    static Color[] textureData;
+    static Texture2D wallTexture;
     static RenderTexture2D renderTarget;
 
     static float[] zBuffer = new float[INTERNAL_WIDTH];
@@ -89,21 +89,10 @@ class Raycaster
     {
         spriteShader = Raylib.LoadShader(null, "Shaders/sprite.fs");
 
-        // Generate texture data directly
-        textureData = new Color[TEXTURE_SIZE * TEXTURE_SIZE];
-
-        for (int y = 0; y < TEXTURE_SIZE; y++)
-        {
-            for (int x = 0; x < TEXTURE_SIZE; x++)
-            {
-                bool isDark = (x / 8 + y / 8) % 2 == 0;
-                textureData[y * TEXTURE_SIZE + x] = isDark ?
-                    new Color(180, 0, 0, 255) :
-                    new Color(220, 0, 0, 255);
-            }
-        }
-
         renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+        wallTexture = Raylib.LoadTexture("Assets/wall.png");
+        Raylib.SetTextureFilter(wallTexture, TextureFilter.Bilinear);
 
         Texture2D enemyTex = Raylib.LoadTexture("Assets/enemy.png");
         Raylib.SetTextureFilter(enemyTex, TextureFilter.Bilinear);
@@ -380,31 +369,28 @@ class Raycaster
                 if ((side == 0 && rayDir.X > 0) || (side == 1 && rayDir.Y < 0))
                     texX = TEXTURE_SIZE - texX - 1;
 
-                // Calculate texture stepping
-                float step = 1.0f * TEXTURE_SIZE / lineHeight;
-                float texPosY = (drawStart - INTERNAL_HEIGHT / 2f + lineHeight / 2f) * step;
-
                 // Shading factors
                 float shade = Math.Clamp(1.0f - perpWallDist * 0.03f, 0.3f, 1.0f);
                 float darken = side == 1 ? 0.6f : 1.0f;
+                Color tint = new Color(
+                    (byte)((byte)255 * shade * darken),
+                    (byte)((byte)255 * shade * darken),
+                    (byte)((byte)255 * shade * darken),
+                    (byte)255
+                );
 
-                // Draw vertical texture slice
-                for (int y = drawStart; y < drawEnd; y++)
-                {
-                    int texY = (int)texPosY & (TEXTURE_SIZE - 1);
-                    Color color = textureData[texY * TEXTURE_SIZE + texX];
+                // Draw vertical strip using texture
+                Rectangle srcRect = new Rectangle(texX, 0, 1, TEXTURE_SIZE);
+                Rectangle destRect = new Rectangle(x, drawStart, 1, drawEnd - drawStart);
 
-                    // Apply shading
-                    Color shadedColor = new Color(
-                        (byte)(color.R * shade * darken),
-                        (byte)(color.G * shade * darken),
-                        (byte)(color.B * shade * darken),
-                        color.A
-                    );
-
-                    Raylib.DrawPixel(x, y, shadedColor);
-                    texPosY += step;
-                }
+                Raylib.DrawTexturePro(
+                    wallTexture,
+                    srcRect,
+                    destRect,
+                    Vector2.Zero,
+                    0f,
+                    tint
+                );
             }
         }
 
