@@ -34,8 +34,8 @@ class Raycaster
     static List<Sprite> sprites = new();
     const int WIDTH = 800;
     const int HEIGHT = 600;
-    const int INTERNAL_WIDTH = 200;
-    const int INTERNAL_HEIGHT = 150;
+    const int INTERNAL_WIDTH = 400;
+    const int INTERNAL_HEIGHT = 300;
     const int TEXTURE_SIZE = 64;
 
     // Mini-map settings
@@ -356,6 +356,7 @@ class Raycaster
                 float perpWallDist = side == 0 ?
                     (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
                     (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
+
                 perpWallDist = MathF.Abs(perpWallDist);
                 perpWallDist = MathF.Max(perpWallDist, 0.01f);
 
@@ -363,10 +364,26 @@ class Raycaster
                 zBuffer[x] = perpWallDist;
                 if (zBuffer[x] > maxZ && zBuffer[x] < float.MaxValue) maxZ = zBuffer[x];
 
-                // Calculate wall height
+                // Calculate wall height with maximum cap
                 int lineHeight = (int)(INTERNAL_HEIGHT / perpWallDist);
+                int maxWallHeight = INTERNAL_HEIGHT;
+                lineHeight = Math.Min(lineHeight, maxWallHeight);
+
                 int drawStart = Math.Clamp(-lineHeight / 2 + INTERNAL_HEIGHT / 2, 0, INTERNAL_HEIGHT);
                 int drawEnd = Math.Clamp(lineHeight / 2 + INTERNAL_HEIGHT / 2, 0, INTERNAL_HEIGHT);
+
+                // Calculate texture coordinates with offset based on clamping
+                float texOffsetY = 0f;
+                if (lineHeight >= maxWallHeight)
+                {
+                    // When capped, calculate vertical offset to show center of texture
+                    float overflow = (INTERNAL_HEIGHT / perpWallDist) - maxWallHeight;
+                    texOffsetY = (overflow / 2) / (INTERNAL_HEIGHT / perpWallDist);
+                }
+
+                float sampleHeight = 1f - texOffsetY * 2; // Portion of texture to show
+                int texYStart = (int)(TEXTURE_SIZE * texOffsetY);
+                int texYEnd = (int)(TEXTURE_SIZE * (1 - texOffsetY));
 
                 // Calculate texture x-coordinate
                 float wallX = side == 0 ?
@@ -389,8 +406,19 @@ class Raycaster
                 );
 
                 // Draw vertical strip using texture
-                Rectangle srcRect = new Rectangle(texX, 0, 1, TEXTURE_SIZE);
-                Rectangle destRect = new Rectangle(x, drawStart, 1, drawEnd - drawStart);
+                Rectangle srcRect = new Rectangle(
+                    texX,
+                    texYStart,
+                    1,
+                    Math.Max(1, texYEnd - texYStart) // Ensure at least 1 pixel height
+                );
+
+                Rectangle destRect = new Rectangle(
+                    x, 
+                    drawStart, 
+                    1, 
+                    drawEnd - drawStart
+                );
 
                 Raylib.DrawTexturePro(
                     wallTexture,

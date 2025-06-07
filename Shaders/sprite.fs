@@ -8,7 +8,7 @@ uniform vec4 colDiffuse;
 
 uniform int screenWidth;
 uniform int screenHeight;
-uniform float zBuffer[200]; // Must match INTERNAL_WIDTH
+uniform float zBuffer[400]; // Must match INTERNAL_WIDTH
 uniform float spriteDepth;
 
 out vec4 finalColor;
