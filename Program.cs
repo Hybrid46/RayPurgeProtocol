@@ -17,6 +17,15 @@ class Raycaster
         }
     }
 
+    // UPS (Updates Per Second) settings
+    const int TARGET_UPS = 60; // Logic updates per second
+    const float FIXED_DELTA_TIME = 1.0f / TARGET_UPS;
+    static float accumulator = 0f;
+    static int ups = 0;
+    static int upsCount = 0;
+    static double upsTimer = 0;
+    static double updateTimeMs = 0;
+
     // Performance metrics
     static double rayLoopTimeMs = 0;
     static double spriteDrawTimeMs = 0;
@@ -65,8 +74,8 @@ class Raycaster
     static Vector2 playerPos = new Vector2(1.5f, 1.5f);
     static Vector2 playerDir = new Vector2(1, 0);
     static Vector2 cameraPlane = new Vector2(0, 0.66f);
-    const float MOVE_SPEED = 0.05f;
-    const float ROT_SPEED = 0.1f;
+    const float MOVE_SPEED = 3.0f;
+    const float ROT_SPEED = 3.0f;
 
     // Colors
     static Color SkyColor = new Color(100, 100, 255, 255);
@@ -85,24 +94,23 @@ class Raycaster
     static float maxZ = 0f;
 
     static void LoadTextures()
-    {
-        spriteShader = Raylib.LoadShader(null, "Shaders/sprite.fs");
-
+    {    
         renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
 
-        checkerBoardTexture = Raylib.LoadTexture("Assets/CheckerBoard.png");
-        Raylib.SetTextureFilter(checkerBoardTexture, TextureFilter.Point);
-        Raylib.SetTextureWrap(checkerBoardTexture, TextureWrap.Clamp);
+        checkerBoardTexture = LoadTexture("Assets/CheckerBoard.png");
+        wallTexture = LoadTexture("Assets/wall.png");
 
-        wallTexture = Raylib.LoadTexture("Assets/wall.png");
-        Raylib.SetTextureFilter(wallTexture, TextureFilter.Point);
-        Raylib.SetTextureWrap(wallTexture, TextureWrap.Clamp);
-
-        Texture2D enemyTex = Raylib.LoadTexture("Assets/enemy.png");
-        Raylib.SetTextureFilter(enemyTex, TextureFilter.Point);
-        Raylib.SetTextureWrap(wallTexture, TextureWrap.Clamp);
+        Texture2D enemyTex = LoadTexture("Assets/enemy.png");
 
         sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
+
+        Texture2D LoadTexture(string path)
+        {
+            Texture2D tex = Raylib.LoadTexture(path);
+            Raylib.SetTextureFilter(tex, TextureFilter.Point);
+            Raylib.SetTextureWrap(tex, TextureWrap.Clamp);
+            return tex;
+        }
     }
 
     static void DrawPerformanceMetrics()
@@ -112,20 +120,22 @@ class Raycaster
         int lineHeight = 20;
 
         // Draw background panel
-        Raylib.DrawRectangle(startX - 5, startY - 5, 220, 170, new Color(0, 0, 0, 180));
-        Raylib.DrawRectangleLines(startX - 5, startY - 5, 220, 170, Color.DarkGray);
+        Raylib.DrawRectangle(startX - 5, startY - 5, 220, 210, new Color(0, 0, 0, 180));
+        Raylib.DrawRectangleLines(startX - 5, startY - 5, 220, 210, Color.DarkGray);
 
         // Draw metrics
         Raylib.DrawText($"Ray Loop: {rayLoopTimeMs:F2} ms", startX, startY, lineHeight, Color.Green);
         Raylib.DrawText($"Sprites: {spriteDrawTimeMs:F2} ms", startX, startY + lineHeight, lineHeight, Color.Green);
         Raylib.DrawText($"Z-Buffer: {zBufferDrawTimeMs:F2} ms", startX, startY + lineHeight * 2, lineHeight, Color.Green);
-        Raylib.DrawText($"Frame: {totalFrameTimeMs:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Yellow);
-        Raylib.DrawText($"FPS: {Raylib.GetFPS()}", startX, startY + lineHeight * 4, lineHeight, Color.Yellow);
+        Raylib.DrawText($"Update: {updateTimeMs:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Lime);
+        Raylib.DrawText($"Frame: {totalFrameTimeMs:F2} ms", startX, startY + lineHeight * 4, lineHeight, Color.Yellow);
+        Raylib.DrawText($"FPS: {Raylib.GetFPS()}", startX, startY + lineHeight * 5, lineHeight, Color.Yellow);
+        Raylib.DrawText($"UPS: {ups}", startX, startY + lineHeight * 6, lineHeight, Color.SkyBlue);
 
         // Min/Max/Avg
-        Raylib.DrawText($"Min: {minFrameTime:F2} ms", startX, startY + lineHeight * 5, lineHeight, Color.Orange);
-        Raylib.DrawText($"Max: {maxFrameTime:F2} ms", startX, startY + lineHeight * 6, lineHeight, Color.Orange);
-        Raylib.DrawText($"Avg: {avgFrameTime:F2} ms", startX, startY + lineHeight * 7, lineHeight, Color.Orange);
+        Raylib.DrawText($"Min: {minFrameTime:F2} ms", startX, startY + lineHeight * 7, lineHeight, Color.Orange);
+        Raylib.DrawText($"Max: {maxFrameTime:F2} ms", startX, startY + lineHeight * 8, lineHeight, Color.Orange);
+        Raylib.DrawText($"Avg: {avgFrameTime:F2} ms", startX, startY + lineHeight * 9, lineHeight, Color.Orange);
     }
 
     static void DrawSprites()
@@ -482,106 +492,93 @@ class Raycaster
         Raylib.SetTargetFPS(60);
 
         frameTimer.Start();
+        Stopwatch gameTimer = Stopwatch.StartNew();
+        double lastTime = gameTimer.Elapsed.TotalSeconds;
+        double currentTime = lastTime;
+
+        spriteShader = Raylib.LoadShader(null, "Shaders/sprite.fs");
 
         LoadTextures();
 
         while (!Raylib.WindowShouldClose())
         {
-            // Update frame timing
-            frameTimer.Stop();
-            totalFrameTimeMs = frameTimer.Elapsed.TotalMilliseconds;
+            // Calculate frame time
+            currentTime = gameTimer.Elapsed.TotalSeconds;
+            double frameTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            // Convert to milliseconds for metrics
+            totalFrameTimeMs = frameTime * 1000.0;
 
             // Update performance stats
             if (totalFrameTimeMs < minFrameTime) minFrameTime = totalFrameTimeMs;
             if (totalFrameTimeMs > maxFrameTime) maxFrameTime = totalFrameTimeMs;
 
             frameCount++;
-            if (frameCount >= 60) // Update average every second (at 60 FPS)
+            if (frameCount >= 60)
             {
                 avgFrameTime = (avgFrameTime * 0.9) + (totalFrameTimeMs * 0.1);
                 frameCount = 0;
             }
 
-            // Handle input
-            if (Raylib.IsKeyDown(KeyboardKey.D))
+            // Accumulate time for UPS
+            accumulator += (float)frameTime;
+            double updateStartTime = gameTimer.Elapsed.TotalSeconds;
+
+            // Process input outside fixed update for responsiveness
+            ProcessInput();
+
+            // Fixed timestep updates for game logic
+            while (accumulator >= FIXED_DELTA_TIME)
             {
-                // Rotate left using matrix multiplication
-                playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(ROT_SPEED));
-                cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(ROT_SPEED));
+                Stopwatch updateTimer = Stopwatch.StartNew();
+                FixedUpdate(FIXED_DELTA_TIME);
+                updateTimer.Stop();
+                updateTimeMs += updateTimer.Elapsed.TotalMilliseconds;
+
+                accumulator -= FIXED_DELTA_TIME;
+                upsCount++;
             }
 
-            if (Raylib.IsKeyDown(KeyboardKey.A))
+            // Update UPS counter every second
+            upsTimer += frameTime;
+            if (upsTimer >= 1.0)
             {
-                // Rotate right using matrix multiplication
-                playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-ROT_SPEED));
-                cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(-ROT_SPEED));
+                ups = upsCount;
+                upsCount = 0;
+                updateTimeMs /= ups; // Average update time
+                upsTimer -= 1.0;
             }
 
-            if (Raylib.IsKeyDown(KeyboardKey.W))
+            // Only render if we're not running behind on updates
+            if (accumulator < FIXED_DELTA_TIME * 3)
             {
-                Vector2 newPos = playerPos + playerDir * MOVE_SPEED;
-                if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
-                    MAP[(int)newPos.Y, (int)newPos.X] == 0)
-                {
-                    playerPos = newPos;
-                }
+                // Update the 3D view - this is rendering, not logic
+                CastRays();
+
+                // Drawing
+                Raylib.BeginDrawing();
+                Raylib.ClearBackground(Color.Black);
+
+                // Draw upscaled texture to screen
+                Rectangle source = new Rectangle(0, 0, INTERNAL_WIDTH, -INTERNAL_HEIGHT);
+                Rectangle dest = new Rectangle(0, 0, WIDTH, HEIGHT);
+                Raylib.DrawTexturePro(
+                    renderTarget.Texture,
+                    source,
+                    dest,
+                    Vector2.Zero,
+                    0f,
+                    Color.White
+                );
+
+                // Draw minimap and performance metrics
+                DrawPerformanceMetrics();
+                DrawMinimap();
+                Raylib.DrawFPS(10, 10);
+
+                Raylib.EndDrawing();
             }
-
-            if (Raylib.IsKeyDown(KeyboardKey.S))
-            {
-                Vector2 newPos = playerPos - playerDir * MOVE_SPEED;
-                if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
-                    MAP[(int)newPos.Y, (int)newPos.X] == 0)
-                {
-                    playerPos = newPos;
-                }
-            }
-
-            if (Raylib.IsKeyDown(KeyboardKey.Q))
-            {
-                Vector2 newPos = playerPos + new Vector2(playerDir.Y, -playerDir.X) * MOVE_SPEED;
-                if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
-                    MAP[(int)newPos.Y, (int)newPos.X] == 0)
-                {
-                    playerPos = newPos;
-                }
-            }
-
-            if (Raylib.IsKeyDown(KeyboardKey.E))
-            {
-                Vector2 newPos = playerPos - new Vector2(playerDir.Y, -playerDir.X) * MOVE_SPEED;
-                if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
-                    MAP[(int)newPos.Y, (int)newPos.X] == 0)
-                {
-                    playerPos = newPos;
-                }
-            }
-
-            // Update the 3D view
-            CastRays();
-
-            // Drawing
-            Raylib.BeginDrawing();
-            Raylib.ClearBackground(Color.Black);
-
-            // Draw upscaled texture to screen
-            Rectangle source = new Rectangle(0, 0, INTERNAL_WIDTH, -INTERNAL_HEIGHT); // Flip vertically
-            Rectangle dest = new Rectangle(0, 0, WIDTH, HEIGHT);
-            Raylib.DrawTexturePro(
-                renderTarget.Texture,
-                source,
-                dest,
-                Vector2.Zero,
-                0f,
-                Color.White
-            );
-
-            // Draw minimap and FPS
-            DrawPerformanceMetrics();
-            DrawMinimap();
-            Raylib.DrawFPS(10, 10);
-
-            Raylib.EndDrawing();
 
             frameTimer.Restart();
         }
@@ -591,5 +588,71 @@ class Raycaster
         foreach (var sprite in sprites) Raylib.UnloadTexture(sprite.Texture);
         Raylib.UnloadShader(spriteShader);
         Raylib.CloseWindow();
+    }
+
+    static void FixedUpdate(float deltaTime)
+    {
+        // Convert movement to be time-based
+        float moveStep = MOVE_SPEED * deltaTime;
+        float rotationStep = ROT_SPEED * deltaTime;
+
+        if (Raylib.IsKeyDown(KeyboardKey.D))
+        {
+            // Rotate left using matrix multiplication
+            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(rotationStep));
+            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(rotationStep));
+        }
+
+        if (Raylib.IsKeyDown(KeyboardKey.A))
+        {
+            // Rotate right using matrix multiplication
+            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-rotationStep));
+            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(-rotationStep));
+        }
+
+        if (Raylib.IsKeyDown(KeyboardKey.W))
+        {
+            Vector2 newPos = playerPos + playerDir * moveStep;
+            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+            {
+                playerPos = newPos;
+            }
+        }
+
+        if (Raylib.IsKeyDown(KeyboardKey.S))
+        {
+            Vector2 newPos = playerPos - playerDir * moveStep;
+            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+            {
+                playerPos = newPos;
+            }
+        }
+
+        if (Raylib.IsKeyDown(KeyboardKey.Q))
+        {
+            Vector2 newPos = playerPos + new Vector2(playerDir.Y, -playerDir.X) * moveStep;
+            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+            {
+                playerPos = newPos;
+            }
+        }
+
+        if (Raylib.IsKeyDown(KeyboardKey.E))
+        {
+            Vector2 newPos = playerPos - new Vector2(playerDir.Y, -playerDir.X) * moveStep;
+            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+            {
+                playerPos = newPos;
+            }
+        }
+    }
+
+    private static void ProcessInput()
+    {
+        // Handle other input
     }
 }
