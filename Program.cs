@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
 using Raylib_cs;
 using Color = Raylib_cs.Color;
 
@@ -29,6 +30,17 @@ class Raycaster
             Raylib.UnloadImage(textureImage);
         }
     }
+
+    // Performance metrics
+    static double rayLoopTimeMs = 0;
+    static double spriteDrawTimeMs = 0;
+    static double zBufferDrawTimeMs = 0;
+    static double totalFrameTimeMs = 0;
+    static double minFrameTime = double.MaxValue;
+    static double maxFrameTime = 0;
+    static double avgFrameTime = 0;
+    static int frameCount = 0;
+    static Stopwatch frameTimer = new Stopwatch();
 
     static Shader spriteShader;
     static List<Sprite> sprites = new();
@@ -104,6 +116,29 @@ class Raycaster
         Raylib.SetTextureFilter(enemyTex, TextureFilter.Bilinear);
 
         sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
+    }
+
+    static void DrawPerformanceMetrics()
+    {
+        int startX = 10;
+        int startY = 40;
+        int lineHeight = 20;
+
+        // Draw background panel
+        Raylib.DrawRectangle(startX - 5, startY - 5, 220, 170, new Color(0, 0, 0, 180));
+        Raylib.DrawRectangleLines(startX - 5, startY - 5, 220, 170, Color.DarkGray);
+
+        // Draw metrics
+        Raylib.DrawText($"Ray Loop: {rayLoopTimeMs:F2} ms", startX, startY, lineHeight, Color.Green);
+        Raylib.DrawText($"Sprites: {spriteDrawTimeMs:F2} ms", startX, startY + lineHeight, lineHeight, Color.Green);
+        Raylib.DrawText($"Z-Buffer: {zBufferDrawTimeMs:F2} ms", startX, startY + lineHeight * 2, lineHeight, Color.Green);
+        Raylib.DrawText($"Frame: {totalFrameTimeMs:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Yellow);
+        Raylib.DrawText($"FPS: {Raylib.GetFPS()}", startX, startY + lineHeight * 4, lineHeight, Color.Yellow);
+
+        // Min/Max/Avg
+        Raylib.DrawText($"Min: {minFrameTime:F2} ms", startX, startY + lineHeight * 5, lineHeight, Color.Orange);
+        Raylib.DrawText($"Max: {maxFrameTime:F2} ms", startX, startY + lineHeight * 6, lineHeight, Color.Orange);
+        Raylib.DrawText($"Avg: {avgFrameTime:F2} ms", startX, startY + lineHeight * 7, lineHeight, Color.Orange);
     }
 
     static void DrawSprites()
@@ -299,6 +334,8 @@ class Raycaster
         Array.Fill(zBuffer, float.MaxValue);
         maxZ = 0f;
 
+        Stopwatch rayTimer = Stopwatch.StartNew();
+
         for (int x = 0; x < INTERNAL_WIDTH; x++)
         {
             // Calculate ray direction with internal width
@@ -436,8 +473,18 @@ class Raycaster
             }
         }
 
+        rayTimer.Stop();
+        rayLoopTimeMs = rayTimer.Elapsed.TotalMilliseconds;
+
+        Stopwatch spriteTimer = Stopwatch.StartNew();
         DrawSprites();
+        spriteTimer.Stop();
+        spriteDrawTimeMs = spriteTimer.Elapsed.TotalMilliseconds;
+
+        Stopwatch zBufferTimer = Stopwatch.StartNew();
         DrawZBuffer();
+        zBufferTimer.Stop();
+        zBufferDrawTimeMs = zBufferTimer.Elapsed.TotalMilliseconds;
 
         Raylib.EndTextureMode();
     }
@@ -447,10 +494,27 @@ class Raycaster
         Raylib.InitWindow(WIDTH, HEIGHT, "Optimized Raycaster");
         Raylib.SetTargetFPS(60);
 
+        frameTimer.Start();
+
         LoadTextures();
 
         while (!Raylib.WindowShouldClose())
         {
+            // Update frame timing
+            frameTimer.Stop();
+            totalFrameTimeMs = frameTimer.Elapsed.TotalMilliseconds;
+
+            // Update performance stats
+            if (totalFrameTimeMs < minFrameTime) minFrameTime = totalFrameTimeMs;
+            if (totalFrameTimeMs > maxFrameTime) maxFrameTime = totalFrameTimeMs;
+
+            frameCount++;
+            if (frameCount >= 60) // Update average every second (at 60 FPS)
+            {
+                avgFrameTime = (avgFrameTime * 0.9) + (totalFrameTimeMs * 0.1);
+                frameCount = 0;
+            }
+
             // Handle input
             if (Raylib.IsKeyDown(KeyboardKey.D))
             {
@@ -526,10 +590,13 @@ class Raycaster
             );
 
             // Draw minimap and FPS
+            DrawPerformanceMetrics();
             DrawMinimap();
             Raylib.DrawFPS(10, 10);
 
             Raylib.EndDrawing();
+
+            frameTimer.Restart();
         }
 
         // Cleanup
