@@ -79,6 +79,7 @@ class Raycaster
     static Color EnemyColor = new Color(255, 0, 0, 255);
 
     // Textures
+    static Texture2D checkerBoardTexture;
     static Texture2D wallTexture;
     static RenderTexture2D renderTarget;
 
@@ -90,6 +91,10 @@ class Raycaster
         spriteShader = Raylib.LoadShader(null, "Shaders/sprite.fs");
 
         renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+        checkerBoardTexture = Raylib.LoadTexture("Assets/CheckerBoard.png");
+        Raylib.SetTextureFilter(checkerBoardTexture, TextureFilter.Point);
+        Raylib.SetTextureWrap(checkerBoardTexture, TextureWrap.Clamp);
 
         wallTexture = Raylib.LoadTexture("Assets/wall.png");
         Raylib.SetTextureFilter(wallTexture, TextureFilter.Point);
@@ -173,9 +178,9 @@ class Raycaster
             // Apply distance shading
             float shade = Math.Clamp(1.0f - transformY * 0.03f, 0.3f, 1.0f);
             Color tint = new Color(
-                (byte)(byte)(255 * shade),
-                (byte)((byte)255 * shade),
-                (byte)((byte)255 * shade),
+                ((byte)255 * shade),
+                ((byte)255 * shade),
+                ((byte)255 * shade),
                  (byte)255
             );
 
