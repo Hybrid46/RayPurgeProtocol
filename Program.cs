@@ -9,25 +9,11 @@ class Raycaster
     {
         public Vector2 Position;
         public Texture2D Texture;
-        public Color[] TextureData;
 
         public Sprite(Vector2 position, Texture2D texture)
         {
             Position = position;
-            Texture = texture;
-            TextureData = new Color[texture.Width * texture.Height];
-
-            Image textureImage = Raylib.LoadImageFromTexture(texture);
-
-            for (int y = 0; y < texture.Height; y++)
-            {
-                for (int x = 0; x < texture.Width; x++)
-                {
-                    TextureData[y * texture.Width + x] = Raylib.GetImageColor(textureImage, x, y);
-                }
-            }
-
-            Raylib.UnloadImage(textureImage);
+            Texture = texture;            
         }
     }
 
@@ -113,7 +99,8 @@ class Raycaster
         Raylib.SetTextureWrap(wallTexture, TextureWrap.Clamp);
 
         Texture2D enemyTex = Raylib.LoadTexture("Assets/enemy.png");
-        Raylib.SetTextureFilter(enemyTex, TextureFilter.Bilinear);
+        Raylib.SetTextureFilter(enemyTex, TextureFilter.Point);
+        Raylib.SetTextureWrap(wallTexture, TextureWrap.Clamp);
 
         sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
     }
@@ -441,9 +428,9 @@ class Raycaster
                 float shade = Math.Clamp(1.0f - perpWallDist * 0.03f, 0.3f, 1.0f);
                 float darken = side == 1 ? 0.6f : 1.0f;
                 Color tint = new Color(
-                    (byte)((byte)255 * shade * darken),
-                    (byte)((byte)255 * shade * darken),
-                    (byte)((byte)255 * shade * darken),
+                    (byte)(255 * shade * darken),
+                    (byte)(255 * shade * darken),
+                    (byte)(255 * shade * darken),
                     (byte)255
                 );
 
