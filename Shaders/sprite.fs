@@ -1,31 +1,43 @@
 #version 330
 
-// Input from vertex shader
 in vec2 fragTexCoord;
 in vec4 fragColor;
 
-// Input uniform values
 uniform sampler2D texture0;
-uniform float spriteDepth;
-uniform float zBuffer[200]; // Must match INTERNAL_WIDTH
-uniform int screenWidth;    // Must match INTERNAL_WIDTH
+uniform vec4 colDiffuse;
 
-// Output fragment color
+uniform int screenWidth;
+uniform int screenHeight;
+uniform float zBuffer[200]; // Must match INTERNAL_WIDTH
+uniform float spriteDepth;
+
 out vec4 finalColor;
 
 void main()
 {
-    vec4 texelColor = texture(texture0, fragTexCoord);
-    if (texelColor.a == 0.0) discard;
-
-    // Get screen position
+    // Calculate screen position
     int x = int(gl_FragCoord.x);
-    x = clamp(x, 0, screenWidth - 1);
+    int y = screenHeight - int(gl_FragCoord.y); // Flip Y to match buffer
     
-    // Depth test - discard if behind wall
-    if (zBuffer[x] < spriteDepth) {
+    // Only process pixels within viewport
+    if (x < 0 || x >= screenWidth || y < 0 || y >= screenHeight) {
         discard;
     }
 
-    finalColor = texelColor * fragColor;
+    // Get color from texture
+    vec4 texelColor = texture(texture0, fragTexCoord);
+    
+    // Discard transparent pixels
+    if (texelColor.a < 0.001) {
+        discard;
+    }
+
+    // Depth comparison
+    if (spriteDepth > zBuffer[x]) {
+        discard;
+    }
+
+    // Apply distance shading
+    float shade = clamp(1.0 - spriteDepth * 0.03, 0.3, 1.0);
+    finalColor = vec4(texelColor.rgb * shade * fragColor.rgb, texelColor.a);
 }

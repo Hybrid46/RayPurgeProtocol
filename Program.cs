@@ -92,7 +92,8 @@ class Raycaster
         renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
 
         wallTexture = Raylib.LoadTexture("Assets/wall.png");
-        Raylib.SetTextureFilter(wallTexture, TextureFilter.Bilinear);
+        Raylib.SetTextureFilter(wallTexture, TextureFilter.Point);
+        Raylib.SetTextureWrap(wallTexture, TextureWrap.Clamp);
 
         Texture2D enemyTex = Raylib.LoadTexture("Assets/enemy.png");
         Raylib.SetTextureFilter(enemyTex, TextureFilter.Bilinear);
@@ -113,6 +114,9 @@ class Raycaster
         int screenWidthLoc = Raylib.GetShaderLocation(spriteShader, "screenWidth");
         Raylib.SetShaderValue(spriteShader, screenWidthLoc, INTERNAL_WIDTH, ShaderUniformDataType.Int);
 
+        int screenHeightLoc = Raylib.GetShaderLocation(spriteShader, "screenHeight");
+        Raylib.SetShaderValue(spriteShader, screenHeightLoc, INTERNAL_HEIGHT, ShaderUniformDataType.Int);
+
         foreach (var sprite in sprites)
         {
             // Transform sprite position relative to camera
@@ -129,9 +133,10 @@ class Raycaster
             int spriteHeight = Math.Abs((int)(INTERNAL_HEIGHT / transformY));
             if (spriteHeight < 2) continue;
 
-            int spriteWidth = spriteHeight;
+            float aspectRatio = sprite.Texture.Width / (float)sprite.Texture.Height;
+            int spriteWidth = (int)(spriteHeight * aspectRatio);
 
-            // Calculate drawing coordinates
+            // Calculate drawing coordinates with clamping
             int drawStartX = Math.Clamp(spriteScreenX - spriteWidth / 2, 0, INTERNAL_WIDTH);
             int drawEndX = Math.Clamp(spriteScreenX + spriteWidth / 2, 0, INTERNAL_WIDTH);
             int drawStartY = Math.Clamp(INTERNAL_HEIGHT / 2 - spriteHeight / 2, 0, INTERNAL_HEIGHT);
@@ -144,15 +149,18 @@ class Raycaster
             int depthLoc = Raylib.GetShaderLocation(spriteShader, "spriteDepth");
             Raylib.SetShaderValue(spriteShader, depthLoc, transformY, ShaderUniformDataType.Float);
 
-            // Create source and destination rectangles
+            // Calculate texture coordinates with proper clipping
             float texOffsetX = (float)(drawStartX - (spriteScreenX - spriteWidth / 2)) / spriteWidth;
             float texWidth = (float)(drawEndX - drawStartX) / spriteWidth;
 
+            float texOffsetY = (float)(drawStartY - (INTERNAL_HEIGHT / 2 - spriteHeight / 2)) / spriteHeight;
+            float texHeight = (float)(drawEndY - drawStartY) / spriteHeight;
+
             Rectangle srcRect = new Rectangle(
                 texOffsetX * sprite.Texture.Width,
-                0,
+                texOffsetY * sprite.Texture.Height,
                 texWidth * sprite.Texture.Width,
-                sprite.Texture.Height
+                texHeight * sprite.Texture.Height
             );
 
             Rectangle destRect = new Rectangle(
@@ -349,6 +357,7 @@ class Raycaster
                     (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
                     (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
                 perpWallDist = MathF.Abs(perpWallDist);
+                perpWallDist = MathF.Max(perpWallDist, 0.01f);
 
                 //ZBuffer
                 zBuffer[x] = perpWallDist;
