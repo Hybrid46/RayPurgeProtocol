@@ -237,7 +237,8 @@ class Raycaster
         if (maxZ <= 0) return;
 
         // Draw depth buffer as a gradient at the bottom
-        int debugHeight = INTERNAL_HEIGHT / 8; // Use 12.5% of screen height
+        int debugHeight = 10;
+
         for (int y = 0; y < debugHeight; y++)
         {
             for (int x = 0; x < INTERNAL_WIDTH; x++)
@@ -266,8 +267,8 @@ class Raycaster
         {
             float depth = zBuffer[INTERNAL_WIDTH / 10 * i - 1];
             string text = $"{depth:F1}";
-            int yPos = INTERNAL_HEIGHT - debugHeight / 2;
-            Raylib.DrawText(text, i * INTERNAL_WIDTH / 10, yPos, 6, Color.Red);
+            int yPos = INTERNAL_HEIGHT - 20;
+            Raylib.DrawText(text, i * INTERNAL_WIDTH / 10, yPos, 4, Color.Red);
         }
     }
 
