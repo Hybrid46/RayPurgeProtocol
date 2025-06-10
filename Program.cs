@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
+using Microsoft.Win32.SafeHandles;
 using Raylib_cs;
 using Color = Raylib_cs.Color;
 
@@ -13,7 +14,7 @@ class Raycaster
         public Sprite(Vector2 position, Texture2D texture)
         {
             Position = position;
-            Texture = texture;            
+            Texture = texture;
         }
     }
 
@@ -76,6 +77,7 @@ class Raycaster
     static Vector2 cameraPlane = new Vector2(0, 0.66f);
     const float MOVE_SPEED = 3.0f;
     const float ROT_SPEED = 3.0f;
+    const float MOUSE_ROT_SPEED = 4.0f;
 
     // Colors
     static Color SkyColor = new Color(100, 100, 255, 255);
@@ -94,7 +96,7 @@ class Raycaster
     static float maxZ = 0f;
 
     static void LoadTextures()
-    {    
+    {
         renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
 
         checkerBoardTexture = LoadTexture("Assets/CheckerBoard.png");
@@ -454,9 +456,9 @@ class Raycaster
                 );
 
                 Rectangle destRect = new Rectangle(
-                    x, 
-                    drawStart, 
-                    1, 
+                    x,
+                    drawStart,
+                    1,
                     drawEnd - drawStart
                 );
 
@@ -527,13 +529,13 @@ class Raycaster
             double updateStartTime = gameTimer.Elapsed.TotalSeconds;
 
             // Process input outside fixed update for responsiveness
-            ProcessInput();
+            if (ProcessInput()) break;
 
             // Fixed timestep updates for game logic
             while (accumulator >= FIXED_DELTA_TIME)
             {
                 Stopwatch updateTimer = Stopwatch.StartNew();
-                FixedUpdate(FIXED_DELTA_TIME);
+                FixedUpdate();
                 updateTimer.Stop();
                 updateTimeMs += updateTimer.Elapsed.TotalMilliseconds;
 
@@ -591,11 +593,17 @@ class Raycaster
         Raylib.CloseWindow();
     }
 
-    static void FixedUpdate(float deltaTime)
+    static void FixedUpdate()
+    {
+        HandleKeyboard();
+        HandleMouse();
+    }
+
+    private static void HandleKeyboard()
     {
         // Convert movement to be time-based
-        float moveStep = MOVE_SPEED * deltaTime;
-        float rotationStep = ROT_SPEED * deltaTime;
+        float moveStep = MOVE_SPEED * FIXED_DELTA_TIME;
+        float rotationStep = ROT_SPEED * FIXED_DELTA_TIME;
 
         if (Raylib.IsKeyDown(KeyboardKey.D))
         {
@@ -652,8 +660,34 @@ class Raycaster
         }
     }
 
-    private static void ProcessInput()
+    private static void HandleMouse()
     {
-        // Handle other input
+        Vector2 mouseDelta = Raylib.GetMouseDelta();
+        float mouseRotationStep = MOUSE_ROT_SPEED * FIXED_DELTA_TIME;
+        Raylib.SetMousePosition(WIDTH / 2, HEIGHT / 2); // Reset mouse position to center
+
+        if (mouseDelta.X > 0)
+        {
+            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(mouseRotationStep));
+            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(mouseRotationStep));
+        }
+        
+        if (mouseDelta.X < 0)
+        {
+            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-mouseRotationStep));
+            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
+        }
+    }
+
+    private static bool ProcessInput()
+    {
+        // Exit the game
+        if (Raylib.IsKeyDown(KeyboardKey.Escape))
+        {
+            Raylib.CloseWindow();
+            return true; 
+        }
+
+        return false;
     }
 }
