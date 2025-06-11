@@ -1,43 +1,37 @@
 #version 330
 
 in vec2 fragTexCoord;
-in vec4 fragColor;
 
-uniform sampler2D texture0;
-uniform vec4 colDiffuse;
+uniform sampler2D texture0;     // Sprite texture
+uniform sampler2D depthTexture; // Depth texture
+uniform vec4 lightingColor;     // Lighting color
 
-uniform int screenWidth;
-uniform int screenHeight;
-uniform float zBuffer[400]; // Must match INTERNAL_WIDTH
-uniform float spriteDepth;
+uniform float screenWidth;      // Screen width for UV calculation
+uniform float spriteDepth;      // Sprite depth
+uniform float maxDepth;         // Maximum depth value
 
 out vec4 finalColor;
 
 void main()
 {
-    // Calculate screen position
-    int x = int(gl_FragCoord.x);
-    int y = screenHeight - int(gl_FragCoord.y); // Flip Y to match buffer
-    
-    // Only process pixels within viewport
-    if (x < 0 || x >= screenWidth || y < 0 || y >= screenHeight) {
-        discard;
-    }
+    // Calculate normalized texture coordinates for depth buffer
+    vec2 screenUV = vec2(gl_FragCoord.x / screenWidth, 0.0);
 
-    // Get color from texture
-    vec4 texelColor = texture(texture0, fragTexCoord);
+    // Sample depth texture (using red channel)
+    float storedDepth = texture(depthTexture, screenUV).r * maxDepth;
+    
+    // Depth comparison - discard if behind stored depth
+    if(spriteDepth > storedDepth) 
+        discard;
+    
+    // Get color from sprite texture
+    vec4 spriteColor = texture(texture0, fragTexCoord);
     
     // Discard transparent pixels
-    if (texelColor.a < 0.001) {
+    if (spriteColor.a < 0.001) {
         discard;
     }
 
-    // Depth comparison
-    if (spriteDepth > zBuffer[x]) {
-        discard;
-    }
-
-    // Apply distance shading
-    float shade = clamp(1.0 - spriteDepth * 0.03, 0.3, 1.0);
-    finalColor = vec4(texelColor.rgb * shade * fragColor.rgb, texelColor.a);
+    // Apply lighting color
+    finalColor = vec4(spriteColor.rgb * lightingColor, spriteColor.a);
 }
