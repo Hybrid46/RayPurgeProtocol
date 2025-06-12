@@ -3,28 +3,24 @@
 in vec2 fragTexCoord;
 in vec4 fragColor;
 
-uniform sampler2D texture0;
-uniform vec4 colDiffuse;
-
-uniform int screenWidth;
-uniform int screenHeight;
-uniform float zBuffer[400]; // Must match INTERNAL_WIDTH
-uniform float spriteDepth;
+uniform sampler2D texture0;     // Sprite texture
+uniform sampler2D depthTexture; // Depth texture (R32F format)
+uniform float lightingFactor;   // Lighting factor (scalar)
+uniform float spriteDepth;      // Sprite depth
 
 out vec4 finalColor;
 
 void main()
 {
-    // Calculate screen position
-    int x = int(gl_FragCoord.x);
-    int y = screenHeight - int(gl_FragCoord.y); // Flip Y to match buffer
+    // Get depth value directly from red channel (no reconstruction needed)
+    float storedDepth = texelFetch(depthTexture, ivec2(int(gl_FragCoord.x), 0), 0).r;
     
-    // Only process pixels within viewport
-    if (x < 0 || x >= screenWidth || y < 0 || y >= screenHeight) {
+    // Depth comparison with epsilon to prevent z-fighting
+    if (spriteDepth > storedDepth + 0.01) {
         discard;
     }
 
-    // Get color from texture
+    // Get color from sprite texture
     vec4 texelColor = texture(texture0, fragTexCoord);
     
     // Discard transparent pixels
@@ -32,12 +28,6 @@ void main()
         discard;
     }
 
-    // Depth comparison
-    if (spriteDepth > zBuffer[x]) {
-        discard;
-    }
-
-    // Apply distance shading
-    float shade = clamp(1.0 - spriteDepth * 0.03, 0.3, 1.0);
-    finalColor = vec4(texelColor.rgb * shade * fragColor.rgb, texelColor.a);
+    // Apply lighting
+    finalColor = vec4(texelColor.rgb * lightingFactor * fragColor.rgb, texelColor.a);
 }
