@@ -18,6 +18,7 @@ class Raycaster
     }
 
     // UPS (Updates Per Second) settings
+    const int TARGET_FPS = 60; // Frame per second
     const int TARGET_UPS = 60; // Logic updates per second
     const float FIXED_DELTA_TIME = 1.0f / TARGET_UPS;
     static float accumulator = 0f;
@@ -30,6 +31,7 @@ class Raycaster
     static double rayLoopTimeMs = 0;
     static double spriteDrawTimeMs = 0;
     static double zBufferDrawTimeMs = 0;
+    static double depthTextureTimeMs = 0;
     static double totalFrameTimeMs = 0;
     static double minFrameTime = double.MaxValue;
     static double maxFrameTime = 0;
@@ -107,6 +109,7 @@ class Raycaster
         Texture2D enemyTex = LoadTexture("Assets/enemy.png");
 
         sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
+        sprites.Add(new Sprite(new Vector2(7.5f, 5.5f), enemyTex));
 
         Texture2D LoadTexture(string path)
         {
@@ -121,6 +124,8 @@ class Raycaster
     static Texture2D CreateDepthTexture()
     {
         Image depthImage = Raylib.GenImageColor(INTERNAL_WIDTH, 1, Color.Black);
+        // Use 32-bit float format for depth
+        Raylib.ImageFormat(ref depthImage, PixelFormat.UncompressedR32);
         Texture2D tex = Raylib.LoadTextureFromImage(depthImage);
         Raylib.UnloadImage(depthImage);
 
@@ -134,15 +139,9 @@ class Raycaster
     //Write Zbuffer array into depth texture
     static void UpdateDepthTexture()
     {
-        // Create byte buffer for depth data
-        byte[] depthBytes = new byte[INTERNAL_WIDTH * 4]; // 4 bytes per float
-
-        // Convert float depth values to raw bytes
-        for (int i = 0; i < INTERNAL_WIDTH; i++)
-        {
-            byte[] floatBytes = BitConverter.GetBytes(zBuffer[i]);
-            Buffer.BlockCopy(floatBytes, 0, depthBytes, i * 4, 4);
-        }
+        // Convert float array to byte array
+        byte[] depthBytes = new byte[zBuffer.Length * sizeof(float)];
+        Buffer.BlockCopy(zBuffer, 0, depthBytes, 0, depthBytes.Length);
 
         // Update texture
         Raylib.UpdateTexture(depthTexture, depthBytes);
@@ -155,22 +154,23 @@ class Raycaster
         int lineHeight = 20;
 
         // Draw background panel
-        Raylib.DrawRectangle(startX - 5, startY - 5, 220, 210, new Color(0, 0, 0, 180));
-        Raylib.DrawRectangleLines(startX - 5, startY - 5, 220, 210, Color.DarkGray);
+        Raylib.DrawRectangle(startX - 5, startY - 5, 320, 230, new Color(0, 0, 0, 180));
+        Raylib.DrawRectangleLines(startX - 5, startY - 5, 320, 230, Color.DarkGray);
 
         // Draw metrics
         Raylib.DrawText($"Ray Loop: {rayLoopTimeMs:F2} ms", startX, startY, lineHeight, Color.Green);
-        Raylib.DrawText($"Sprites: {spriteDrawTimeMs:F2} ms", startX, startY + lineHeight, lineHeight, Color.Green);
-        Raylib.DrawText($"Z-Buffer: {zBufferDrawTimeMs:F2} ms", startX, startY + lineHeight * 2, lineHeight, Color.Green);
-        Raylib.DrawText($"Update: {updateTimeMs:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Lime);
-        Raylib.DrawText($"Frame: {totalFrameTimeMs:F2} ms", startX, startY + lineHeight * 4, lineHeight, Color.Yellow);
-        Raylib.DrawText($"FPS: {Raylib.GetFPS()}", startX, startY + lineHeight * 5, lineHeight, Color.Yellow);
-        Raylib.DrawText($"UPS: {ups}", startX, startY + lineHeight * 6, lineHeight, Color.SkyBlue);
+        Raylib.DrawText($"Sprite draw: {spriteDrawTimeMs:F2} ms", startX, startY + lineHeight, lineHeight, Color.Green);
+        Raylib.DrawText($"Z-Buffer draw: {zBufferDrawTimeMs:F2} ms", startX, startY + lineHeight * 2, lineHeight, Color.Green);
+        Raylib.DrawText($"Depth Texture: {depthTextureTimeMs:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Green);
+        Raylib.DrawText($"Update time: {updateTimeMs:F2} ms", startX, startY + lineHeight * 4, lineHeight, Color.Lime);
+        Raylib.DrawText($"Total Frame time: {totalFrameTimeMs:F2} ms", startX, startY + lineHeight * 5, lineHeight, Color.Yellow);
+        Raylib.DrawText($"FPS: {Raylib.GetFPS()}", startX, startY + lineHeight * 6, lineHeight, Color.Yellow);
+        Raylib.DrawText($"UPS: {ups}", startX, startY + lineHeight * 7, lineHeight, Color.SkyBlue);
 
         // Min/Max/Avg
-        Raylib.DrawText($"Min: {minFrameTime:F2} ms", startX, startY + lineHeight * 7, lineHeight, Color.Orange);
-        Raylib.DrawText($"Max: {maxFrameTime:F2} ms", startX, startY + lineHeight * 8, lineHeight, Color.Orange);
-        Raylib.DrawText($"Avg: {avgFrameTime:F2} ms", startX, startY + lineHeight * 9, lineHeight, Color.Orange);
+        Raylib.DrawText($"Min: {minFrameTime:F2} ms", startX, startY + lineHeight * 8, lineHeight, Color.Orange);
+        Raylib.DrawText($"Max: {maxFrameTime:F2} ms", startX, startY + lineHeight * 9, lineHeight, Color.Orange);
+        Raylib.DrawText($"Avg: {avgFrameTime:F2} ms", startX, startY + lineHeight * 10, lineHeight, Color.Orange);
     }
 
     static void DrawSprites()
@@ -182,12 +182,9 @@ class Raycaster
 
         Raylib.BeginBlendMode(BlendMode.Alpha);
 
-        //Set Depth values for Sprite shader
+        //Set Depth texture for Sprite shader
         int depthTexLoc = Raylib.GetShaderLocation(spriteShader, "depthTexture");
         Raylib.SetShaderValueTexture(spriteShader, depthTexLoc, depthTexture);
-
-        int maxDepthLoc = Raylib.GetShaderLocation(spriteShader, "maxDepth");
-        Raylib.SetShaderValue(spriteShader, maxDepthLoc, maxZ, ShaderUniformDataType.Float);
 
         foreach (var sprite in sprites)
         {
@@ -219,9 +216,9 @@ class Raycaster
             Raylib.SetShaderValue(spriteShader, depthLoc, transformY, ShaderUniformDataType.Float);
             
             //Sprite lighting
-            float lightingColor = Math.Clamp(1.0f - transformY * 0.03f, 0.3f, 1.0f);
+            float lightingFactor = Math.Clamp(1.0f - transformY * 0.03f, 0.3f, 1.0f);
             int lightingColorLoc = Raylib.GetShaderLocation(spriteShader, "lightingFactor");
-            Raylib.SetShaderValue(spriteShader, lightingColorLoc, lightingColor, ShaderUniformDataType.Float);
+            Raylib.SetShaderValue(spriteShader, lightingColorLoc, lightingFactor, ShaderUniformDataType.Float);
 
             // Calculate texture coordinates with proper clipping
             float texOffsetX = (float)(drawStartX - (spriteScreenX - spriteWidth / 2)) / spriteWidth;
@@ -366,7 +363,7 @@ class Raycaster
         Raylib.DrawRectangle(0, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2, GroundColor);
 
         // Reset z-buffer
-        Array.Fill(zBuffer, float.MaxValue);
+        Array.Fill(zBuffer, 10000f);
         maxZ = 0f;
 
         Stopwatch rayTimer = Stopwatch.StartNew();
@@ -439,7 +436,7 @@ class Raycaster
 
                 //ZBuffer
                 zBuffer[x] = perpWallDist;
-                if (zBuffer[x] > maxZ && zBuffer[x] < float.MaxValue) maxZ = zBuffer[x];
+                if (zBuffer[x] > maxZ && zBuffer[x] < 10000f) maxZ = zBuffer[x];
 
                 // Calculate wall height with maximum cap
                 int lineHeight = (int)(INTERNAL_HEIGHT / perpWallDist);
@@ -512,7 +509,10 @@ class Raycaster
         rayLoopTimeMs = rayTimer.Elapsed.TotalMilliseconds;
 
         // Update depth texture with z-buffer
+        Stopwatch depthTimer = Stopwatch.StartNew();
         UpdateDepthTexture();
+        depthTimer.Stop();
+        depthTextureTimeMs = depthTimer.Elapsed.TotalMilliseconds;
 
         Stopwatch spriteTimer = Stopwatch.StartNew();
         DrawSprites();
@@ -530,7 +530,7 @@ class Raycaster
     static void Main()
     {
         Raylib.InitWindow(WIDTH, HEIGHT, "Optimized Raycaster");
-        Raylib.SetTargetFPS(60);
+        Raylib.SetTargetFPS(TARGET_FPS);
 
         frameTimer.Start();
         Stopwatch gameTimer = Stopwatch.StartNew();
