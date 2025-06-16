@@ -537,7 +537,7 @@ class Raycaster
         Raylib.HideCursor();
         Raylib.SetWindowFocused();
         Raylib.SetWindowPosition(Raylib.GetScreenWidth() / 2, Raylib.GetScreenHeight() / 2);
-        //Raylib.ToggleBorderlessWindowed();
+        if (borderlessWindowed) Raylib.ToggleBorderlessWindowed();
 
         Raylib.SetTargetFPS(targetFPS);
 

@@ -14,7 +14,7 @@ public static class Settings
     public static int windowStartPositionX = 400;
     public static int windowStartPositionY = 300;
     public static bool fullscreen = false;
-    public static bool borderlessFullScreen = false;
+    public static bool borderlessWindowed = false;
 
     // Performance settings
     public static int targetFPS = 60;
@@ -38,7 +38,7 @@ public static class Settings
         windowStartPositionX = 400;
         windowStartPositionY = 300;
         fullscreen = false;
-        borderlessFullScreen = false;
+        borderlessWindowed = false;
         targetFPS = 60;
         targetUPS = 60;
         moveSpeed = 3.0f;
@@ -98,8 +98,8 @@ public static class Settings
             if (loadedSettings.TryGetValue(nameof(fullscreen), out string fullscreenStr))
                 fullscreen = Convert.ToBoolean(fullscreenStr);
 
-            if (loadedSettings.TryGetValue(nameof(borderlessFullScreen), out string borderlessStr))
-                borderlessFullScreen = Convert.ToBoolean(borderlessStr);
+            if (loadedSettings.TryGetValue(nameof(borderlessWindowed), out string borderlessStr))
+                borderlessWindowed = Convert.ToBoolean(borderlessStr);
 
             // Parse performance settings
             if (loadedSettings.TryGetValue(nameof(targetFPS), out string fpsStr) &&
@@ -152,7 +152,7 @@ public static class Settings
                 writer.WriteLine($"{nameof(windowStartPositionX)}={windowStartPositionX}");
                 writer.WriteLine($"{nameof(windowStartPositionY)}={windowStartPositionY}");
                 writer.WriteLine($"{nameof(fullscreen)}={fullscreen.ToString().ToLower()}");
-                writer.WriteLine($"{nameof(borderlessFullScreen)}={borderlessFullScreen.ToString().ToLower()}");
+                writer.WriteLine($"{nameof(borderlessWindowed)}={borderlessWindowed.ToString().ToLower()}");
                 writer.WriteLine();
 
                 // Performance settings
