@@ -2,6 +2,7 @@
 using System.Numerics;
 using Raylib_cs;
 using Color = Raylib_cs.Color;
+using static Settings;
 
 class Raycaster
 {
@@ -17,10 +18,6 @@ class Raycaster
         }
     }
 
-    // UPS (Updates Per Second) settings
-    const int TARGET_FPS = 60; // Frame per second
-    const int TARGET_UPS = 60; // Logic updates per second
-    const float FIXED_DELTA_TIME = 1.0f / TARGET_UPS;
     static float accumulator = 0f;
     static int ups = 0;
     static int upsCount = 0;
@@ -41,16 +38,13 @@ class Raycaster
 
     static Shader spriteShader;
     static List<Sprite> sprites = new();
-    const int WIDTH = 800;
-    const int HEIGHT = 600;
-    const int INTERNAL_WIDTH = 400;
-    const int INTERNAL_HEIGHT = 300;
+
     const int TEXTURE_SIZE = 64;
 
     // Mini-map settings
     const int MAP_SCALE = 10;
     const int MAP_SIZE = 16;
-    static readonly Vector2 MAP_POS = new Vector2(WIDTH - MAP_SIZE * MAP_SCALE - 10, 10);
+    static readonly Vector2 MAP_POS = new Vector2(screenWidth - MAP_SIZE * MAP_SCALE - 10, 10);
 
     // 16x16 map
     static readonly int[,] MAP = {
@@ -76,9 +70,6 @@ class Raycaster
     static Vector2 playerPos = new Vector2(1.5f, 1.5f);
     static Vector2 playerDir = new Vector2(1, 0);
     static Vector2 cameraPlane = new Vector2(0, 0.66f);
-    const float MOVE_SPEED = 3.0f;
-    const float ROT_SPEED = 3.0f;
-    const float MOUSE_ROT_SPEED = 4.0f;
 
     // Colors
     static Color SkyColor = new Color(100, 100, 255, 255);
@@ -91,20 +82,22 @@ class Raycaster
     // Textures
     static Texture2D checkerBoardTexture;
     static Texture2D wallTexture;
+    static Texture2D crosshairsTexture;
     static RenderTexture2D renderTarget;
 
     //Z depth
     static Texture2D depthTexture;
-    static float[] zBuffer = new float[INTERNAL_WIDTH];
+    static float[] zBuffer = new float[internalScreenWidth];
     static float maxZ = 0f;
 
     static void LoadTextures()
     {
-        renderTarget = Raylib.LoadRenderTexture(INTERNAL_WIDTH, INTERNAL_HEIGHT);
+        renderTarget = Raylib.LoadRenderTexture(internalScreenWidth, internalScreenHeight);
         depthTexture = CreateDepthTexture();
 
         checkerBoardTexture = LoadTexture("Assets/CheckerBoard.png");
         wallTexture = LoadTexture("Assets/wall.png");
+        crosshairsTexture = LoadTexture("Assets/crosshairs_128.png");
 
         Texture2D enemyTex = LoadTexture("Assets/enemy.png");
 
@@ -120,10 +113,10 @@ class Raycaster
         }
     }
 
-    //Create Depth texture with the INTERNAL_WIDTH of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
+    //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
     static Texture2D CreateDepthTexture()
     {
-        Image depthImage = Raylib.GenImageColor(INTERNAL_WIDTH, 1, Color.Black);
+        Image depthImage = Raylib.GenImageColor(internalScreenWidth, 1, Color.Black);
         // Use 32-bit float format for depth
         Raylib.ImageFormat(ref depthImage, PixelFormat.UncompressedR32);
         Texture2D tex = Raylib.LoadTextureFromImage(depthImage);
@@ -198,23 +191,23 @@ class Raycaster
             if (transformY <= 0) continue;  // Behind camera
 
             // Calculate sprite screen position and size
-            int spriteScreenX = (int)((INTERNAL_WIDTH / 2) * (1 + transformX / transformY));
-            int spriteHeight = Math.Abs((int)(INTERNAL_HEIGHT / transformY));
+            int spriteScreenX = (int)((internalScreenWidth / 2) * (1 + transformX / transformY));
+            int spriteHeight = Math.Abs((int)(internalScreenHeight / transformY));
             if (spriteHeight < 2) continue;
 
             float aspectRatio = sprite.Texture.Width / (float)sprite.Texture.Height;
             int spriteWidth = (int)(spriteHeight * aspectRatio);
 
             // Calculate drawing coordinates with clamping
-            int drawStartX = Math.Clamp(spriteScreenX - spriteWidth / 2, 0, INTERNAL_WIDTH);
-            int drawEndX = Math.Clamp(spriteScreenX + spriteWidth / 2, 0, INTERNAL_WIDTH);
-            int drawStartY = Math.Clamp(INTERNAL_HEIGHT / 2 - spriteHeight / 2, 0, INTERNAL_HEIGHT);
-            int drawEndY = Math.Clamp(INTERNAL_HEIGHT / 2 + spriteHeight / 2, 0, INTERNAL_HEIGHT);
+            int drawStartX = Math.Clamp(spriteScreenX - spriteWidth / 2, 0, internalScreenWidth);
+            int drawEndX = Math.Clamp(spriteScreenX + spriteWidth / 2, 0, internalScreenWidth);
+            int drawStartY = Math.Clamp(internalScreenHeight / 2 - spriteHeight / 2, 0, internalScreenHeight);
+            int drawEndY = Math.Clamp(internalScreenHeight / 2 + spriteHeight / 2, 0, internalScreenHeight);
 
             // Set shader uniforms          
             int depthLoc = Raylib.GetShaderLocation(spriteShader, "spriteDepth");
             Raylib.SetShaderValue(spriteShader, depthLoc, transformY, ShaderUniformDataType.Float);
-            
+
             //Sprite lighting
             float lightingFactor = Math.Clamp(1.0f - transformY * 0.03f, 0.3f, 1.0f);
             int lightingColorLoc = Raylib.GetShaderLocation(spriteShader, "lightingFactor");
@@ -224,7 +217,7 @@ class Raycaster
             float texOffsetX = (float)(drawStartX - (spriteScreenX - spriteWidth / 2)) / spriteWidth;
             float texWidth = (float)(drawEndX - drawStartX) / spriteWidth;
 
-            float texOffsetY = (float)(drawStartY - (INTERNAL_HEIGHT / 2 - spriteHeight / 2)) / spriteHeight;
+            float texOffsetY = (float)(drawStartY - (internalScreenHeight / 2 - spriteHeight / 2)) / spriteHeight;
             float texHeight = (float)(drawEndY - drawStartY) / spriteHeight;
 
             Rectangle srcRect = new Rectangle(
@@ -275,7 +268,7 @@ class Raycaster
 
         for (int y = 0; y < debugHeight; y++)
         {
-            for (int x = 0; x < INTERNAL_WIDTH; x++)
+            for (int x = 0; x < internalScreenWidth; x++)
             {
                 if (zBuffer[x] == float.MaxValue) continue;
 
@@ -292,17 +285,17 @@ class Raycaster
                 int intensity = (int)(brightness * 255);
                 Color color = new Color(intensity, intensity, intensity, 255);
 
-                Raylib.DrawPixel(x, INTERNAL_HEIGHT - debugHeight + y, color);
+                Raylib.DrawPixel(x, internalScreenHeight - debugHeight + y, color);
             }
         }
 
         // Draw depth scale markers
         for (int i = 1; i <= 10; i++)
         {
-            float depth = zBuffer[INTERNAL_WIDTH / 10 * i - 1];
+            float depth = zBuffer[internalScreenWidth / 10 * i - 1];
             string text = $"{depth:F1}";
-            int yPos = INTERNAL_HEIGHT - 20;
-            Raylib.DrawText(text, i * INTERNAL_WIDTH / 10, yPos, 4, Color.Red);
+            int yPos = internalScreenHeight - 20;
+            Raylib.DrawText(text, i * internalScreenWidth / 10, yPos, 4, Color.Red);
         }
     }
 
@@ -356,11 +349,19 @@ class Raycaster
         }
     }
 
+    // Draw crosshairs at the center of the screen
+    private static void DrawMouse()
+    {
+        int centerX = screenWidth / 2;
+        int centerY = screenHeight / 2;
+        Raylib.DrawTexture(crosshairsTexture, centerX - crosshairsTexture.Width / 2, centerY - crosshairsTexture.Height / 2, Color.White);
+    }
+
     static void CastRays()
     {
         Raylib.BeginTextureMode(renderTarget);
         Raylib.ClearBackground(SkyColor);
-        Raylib.DrawRectangle(0, INTERNAL_HEIGHT / 2, INTERNAL_WIDTH, INTERNAL_HEIGHT / 2, GroundColor);
+        Raylib.DrawRectangle(0, internalScreenHeight / 2, internalScreenWidth, internalScreenHeight / 2, GroundColor);
 
         // Reset z-buffer
         Array.Fill(zBuffer, 10000f);
@@ -368,10 +369,10 @@ class Raycaster
 
         Stopwatch rayTimer = Stopwatch.StartNew();
 
-        for (int x = 0; x < INTERNAL_WIDTH; x++)
+        for (int x = 0; x < internalScreenWidth; x++)
         {
             // Calculate ray direction with internal width
-            float cameraX = 2 * x / (float)INTERNAL_WIDTH - 1;
+            float cameraX = 2 * x / (float)internalScreenWidth - 1;
             Vector2 rayDir = new Vector2(
                 playerDir.X + cameraPlane.X * cameraX,
                 playerDir.Y + cameraPlane.Y * cameraX
@@ -439,20 +440,20 @@ class Raycaster
                 if (zBuffer[x] > maxZ && zBuffer[x] < 10000f) maxZ = zBuffer[x];
 
                 // Calculate wall height with maximum cap
-                int lineHeight = (int)(INTERNAL_HEIGHT / perpWallDist);
-                int maxWallHeight = INTERNAL_HEIGHT;
+                int lineHeight = (int)(internalScreenHeight / perpWallDist);
+                int maxWallHeight = internalScreenHeight;
                 lineHeight = Math.Min(lineHeight, maxWallHeight);
 
-                int drawStart = Math.Clamp(-lineHeight / 2 + INTERNAL_HEIGHT / 2, 0, INTERNAL_HEIGHT);
-                int drawEnd = Math.Clamp(lineHeight / 2 + INTERNAL_HEIGHT / 2, 0, INTERNAL_HEIGHT);
+                int drawStart = Math.Clamp(-lineHeight / 2 + internalScreenHeight / 2, 0, internalScreenHeight);
+                int drawEnd = Math.Clamp(lineHeight / 2 + internalScreenHeight / 2, 0, internalScreenHeight);
 
                 // Calculate texture coordinates with offset based on clamping
                 float texOffsetY = 0f;
                 if (lineHeight >= maxWallHeight)
                 {
                     // When capped, calculate vertical offset to show center of texture
-                    float overflow = (INTERNAL_HEIGHT / perpWallDist) - maxWallHeight;
-                    texOffsetY = (overflow / 2) / (INTERNAL_HEIGHT / perpWallDist);
+                    float overflow = (internalScreenHeight / perpWallDist) - maxWallHeight;
+                    texOffsetY = (overflow / 2) / (internalScreenHeight / perpWallDist);
                 }
 
                 float sampleHeight = 1f - texOffsetY * 2; // Portion of texture to show
@@ -529,8 +530,16 @@ class Raycaster
 
     static void Main()
     {
-        Raylib.InitWindow(WIDTH, HEIGHT, "Optimized Raycaster");
-        Raylib.SetTargetFPS(TARGET_FPS);
+        Console.WriteLine("Initializing ...");
+        LoadSettings();
+        Console.WriteLine("Loading ...");
+        Raylib.InitWindow(screenWidth, screenHeight, "Purge Protocol");
+        Raylib.HideCursor();
+        Raylib.SetWindowFocused();
+        Raylib.SetWindowPosition(Raylib.GetScreenWidth() / 2, Raylib.GetScreenHeight() / 2);
+        //Raylib.ToggleBorderlessWindowed();
+
+        Raylib.SetTargetFPS(targetFPS);
 
         frameTimer.Start();
         Stopwatch gameTimer = Stopwatch.StartNew();
@@ -570,14 +579,14 @@ class Raycaster
             if (ProcessInput()) break;
 
             // Fixed timestep updates for game logic
-            while (accumulator >= FIXED_DELTA_TIME)
+            while (accumulator >= fixedDeltaTime)
             {
                 Stopwatch updateTimer = Stopwatch.StartNew();
                 FixedUpdate();
                 updateTimer.Stop();
                 updateTimeMs += updateTimer.Elapsed.TotalMilliseconds;
 
-                accumulator -= FIXED_DELTA_TIME;
+                accumulator -= fixedDeltaTime;
                 upsCount++;
             }
 
@@ -592,7 +601,7 @@ class Raycaster
             }
 
             // Only render if we're not running behind on updates
-            if (accumulator < FIXED_DELTA_TIME * 3)
+            if (accumulator < fixedDeltaTime * 3)
             {
                 // Update the 3D view - this is rendering, not logic
                 CastRays();
@@ -602,8 +611,8 @@ class Raycaster
                 Raylib.ClearBackground(Color.Black);
 
                 // Draw upscaled texture to screen
-                Rectangle source = new Rectangle(0, 0, INTERNAL_WIDTH, -INTERNAL_HEIGHT);
-                Rectangle dest = new Rectangle(0, 0, WIDTH, HEIGHT);
+                Rectangle source = new Rectangle(0, 0, internalScreenWidth, -internalScreenHeight);
+                Rectangle dest = new Rectangle(0, 0, screenWidth, screenHeight);
                 Raylib.DrawTexturePro(
                     renderTarget.Texture,
                     source,
@@ -617,6 +626,7 @@ class Raycaster
                 DrawPerformanceMetrics();
                 DrawMinimap();
                 Raylib.DrawFPS(10, 10);
+                DrawMouse();
 
                 Raylib.EndDrawing();
             }
@@ -631,6 +641,7 @@ class Raycaster
         Raylib.UnloadTexture(depthTexture);
         Raylib.UnloadTexture(checkerBoardTexture);
         Raylib.UnloadTexture(wallTexture);
+        Raylib.UnloadTexture(crosshairsTexture);
         Raylib.CloseWindow();
     }
 
@@ -643,8 +654,8 @@ class Raycaster
     private static void HandleKeyboard()
     {
         // Convert movement to be time-based
-        float moveStep = MOVE_SPEED * FIXED_DELTA_TIME;
-        float rotationStep = ROT_SPEED * FIXED_DELTA_TIME;
+        float moveStep = moveSpeed * fixedDeltaTime;
+        float rotationStep = rotationSpeed * fixedDeltaTime;
 
         if (Raylib.IsKeyDown(KeyboardKey.D))
         {
@@ -704,15 +715,15 @@ class Raycaster
     private static void HandleMouse()
     {
         Vector2 mouseDelta = Raylib.GetMouseDelta();
-        float mouseRotationStep = MOUSE_ROT_SPEED * FIXED_DELTA_TIME;
-        Raylib.SetMousePosition(WIDTH / 2, HEIGHT / 2); // Reset mouse position to center
+        float mouseRotationStep = mouseRotationSpeed * fixedDeltaTime;
+        Raylib.SetMousePosition(screenWidth / 2, screenHeight / 2); // Reset mouse position to center
 
         if (mouseDelta.X > 0)
         {
             playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(mouseRotationStep));
             cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(mouseRotationStep));
         }
-        
+
         if (mouseDelta.X < 0)
         {
             playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-mouseRotationStep));
@@ -726,7 +737,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.Escape))
         {
             Raylib.CloseWindow();
-            return true; 
+            return true;
         }
 
         return false;
