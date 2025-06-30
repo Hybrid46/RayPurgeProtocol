@@ -3,7 +3,8 @@
 ![PurgeProtocol](PurgeProtocol0.png)
 
 Purge Protocol is a retro-style raycaster game inspired by classic first-person shooters like Wolfenstein 3D. Built with C# and Raylib, this project features fast-paced action, enemy AI, and authentic retro visuals with modern rendering techniques.
-Features
+
+## Features
 
     🎮 Classic raycasting engine with smooth movement
 
@@ -19,7 +20,7 @@ Features
 
     🌈 Dynamic lighting and shading effects
 
-How to Play
+## How to Play
 Controls
 
     WASD: Move forward/backward and strafe
@@ -30,10 +31,11 @@ Controls
 
     ESC: Quit game
 
-Objective
+## Objective
 
 Eliminate all enemies while navigating through the maze-like facility. Survive as long as possible!
-System Requirements
+
+## System Requirements
 
     Windows, macOS, or Linux
 
@@ -41,13 +43,16 @@ System Requirements
 
     GPU with OpenGL 3.3 support
 
-Building from Source
+## Building from Source
 
     Clone the repository:
 
-bash
+```bash
 
 git clone https://github.com/yourusername/PurgeProtocol.git
+```
+
+
 
     Install dependencies:
 
@@ -57,12 +62,13 @@ git clone https://github.com/yourusername/PurgeProtocol.git
 
     Build and run:
 
-bash
+```bash
 
 cd PurgeProtocol
 dotnet run
+```
 
-Technical Highlights
+## Technical Highlights
 
     Custom shader-based floor and ceiling rendering
 
@@ -74,7 +80,7 @@ Technical Highlights
 
     Real-time metrics display
 
-License
+## License
 
 This project is licensed under the MIT License. Feel free to use, modify, and distribute as you see fit!
 
