@@ -87,6 +87,9 @@ class Raycaster
     static Texture2D crosshairsTexture;
     static RenderTexture2D renderTarget;
 
+    static Shader floorCeilingShader;
+    static int playerPosLoc, playerDirLoc, cameraPlaneLoc, screenWidthLoc, screenHeightLoc;
+
     //Z depth
     static Texture2D depthTexture;
     static float[] zBuffer = new float[internalScreenWidth];
@@ -115,6 +118,17 @@ class Raycaster
             Raylib.SetTextureWrap(tex, repeat ? TextureWrap.Repeat : TextureWrap.Clamp);
             return tex;
         }
+    }
+
+    static void LoadShaders()
+    {
+        floorCeilingShader = Raylib.LoadShader(null, "Shaders/floor_ceiling.fs");
+
+        playerPosLoc = Raylib.GetShaderLocation(floorCeilingShader, "playerPos");
+        playerDirLoc = Raylib.GetShaderLocation(floorCeilingShader, "playerDir");
+        cameraPlaneLoc = Raylib.GetShaderLocation(floorCeilingShader, "cameraPlane");
+        screenWidthLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenWidth");
+        screenHeightLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenHeight");
     }
 
     //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
@@ -168,6 +182,27 @@ class Raycaster
         Raylib.DrawText($"Min: {minFrameTime:F2} ms", startX, startY + lineHeight * 8, lineHeight, Color.Orange);
         Raylib.DrawText($"Max: {maxFrameTime:F2} ms", startX, startY + lineHeight * 9, lineHeight, Color.Orange);
         Raylib.DrawText($"Avg: {avgFrameTime:F2} ms", startX, startY + lineHeight * 10, lineHeight, Color.Orange);
+    }
+
+    static void DrawFloorAndCeiling()
+    {
+        Raylib.BeginShaderMode(floorCeilingShader);
+
+        // Set shader uniforms
+        Raylib.SetShaderValue(floorCeilingShader, playerPosLoc, playerPos, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, playerDirLoc, playerDir, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, cameraPlaneLoc, cameraPlane, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, screenWidthLoc, (float)internalScreenWidth, ShaderUniformDataType.Float);
+        Raylib.SetShaderValue(floorCeilingShader, screenHeightLoc, (float)internalScreenHeight, ShaderUniformDataType.Float);
+
+        // Set textures
+        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "ceilingTexture"), ceilingTexture);
+        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "floorTexture"), floorTexture);
+
+        // Draw full-screen quad
+        Raylib.DrawRectangle(0, 0, internalScreenWidth, internalScreenHeight, Color.White);
+
+        Raylib.EndShaderMode();
     }
 
     static void DrawSprites()
@@ -364,8 +399,9 @@ class Raycaster
     static void CastRays()
     {
         Raylib.BeginTextureMode(renderTarget);
-        Raylib.ClearBackground(SkyColor);
-        Raylib.DrawRectangle(0, internalScreenHeight / 2, internalScreenWidth, internalScreenHeight / 2, GroundColor);
+        //Raylib.ClearBackground(SkyColor);
+        //Raylib.DrawRectangle(0, internalScreenHeight / 2, internalScreenWidth, internalScreenHeight / 2, GroundColor);
+        DrawFloorAndCeiling();
 
         // Reset z-buffer
         Array.Fill(zBuffer, 10000f);
@@ -553,6 +589,7 @@ class Raycaster
         spriteShader = Raylib.LoadShader(null, "Shaders/sprite.fs");
 
         LoadTextures();
+        LoadShaders();
 
         while (!Raylib.WindowShouldClose())
         {
