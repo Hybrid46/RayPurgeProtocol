@@ -69,7 +69,7 @@ class Raycaster
     // Player
     static Vector2 playerPos = new Vector2(1.5f, 1.5f);
     static Vector2 playerDir = new Vector2(1, 0);
-    static Vector2 cameraPlane = new Vector2(0, 0.66f);
+    static Vector2 cameraPlane = new Vector2(0, 0.9f); //TODO FOV
 
     // Colors
     static Color SkyColor = new Color(100, 100, 255, 255);
@@ -82,6 +82,8 @@ class Raycaster
     // Textures
     static Texture2D checkerBoardTexture;
     static Texture2D wallTexture;
+    static Texture2D ceilingTexture;
+    static Texture2D floorTexture;
     static Texture2D crosshairsTexture;
     static RenderTexture2D renderTarget;
 
@@ -97,6 +99,8 @@ class Raycaster
 
         checkerBoardTexture = LoadTexture("Assets/CheckerBoard.png");
         wallTexture = LoadTexture("Assets/wall.png");
+        ceilingTexture = LoadTexture("Assets/ceiling.png", true);
+        floorTexture = LoadTexture("Assets/floor.png", true);
         crosshairsTexture = LoadTexture("Assets/crosshairs_128.png");
 
         Texture2D enemyTex = LoadTexture("Assets/enemy.png");
@@ -104,11 +108,11 @@ class Raycaster
         sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
         sprites.Add(new Sprite(new Vector2(7.5f, 5.5f), enemyTex));
 
-        Texture2D LoadTexture(string path)
+        Texture2D LoadTexture(string path, bool repeat = false)
         {
             Texture2D tex = Raylib.LoadTexture(path);
             Raylib.SetTextureFilter(tex, TextureFilter.Point);
-            Raylib.SetTextureWrap(tex, TextureWrap.Clamp);
+            Raylib.SetTextureWrap(tex, repeat ? TextureWrap.Repeat : TextureWrap.Clamp);
             return tex;
         }
     }
@@ -641,6 +645,8 @@ class Raycaster
         Raylib.UnloadTexture(depthTexture);
         Raylib.UnloadTexture(checkerBoardTexture);
         Raylib.UnloadTexture(wallTexture);
+        Raylib.UnloadTexture(ceilingTexture);
+        Raylib.UnloadTexture(floorTexture);
         Raylib.UnloadTexture(crosshairsTexture);
         Raylib.CloseWindow();
     }
