@@ -80,11 +80,8 @@ class Raycaster
     static Color EnemyColor = new Color(255, 0, 0, 255);
 
     // Textures
-    static Texture2D checkerBoardTexture;
-    static Texture2D wallTexture;
-    static Texture2D ceilingTexture;
-    static Texture2D floorTexture;
-    static Texture2D crosshairsTexture;
+    static Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
+
     static RenderTexture2D renderTarget;
 
     static Shader floorCeilingShader;
@@ -100,22 +97,28 @@ class Raycaster
         renderTarget = Raylib.LoadRenderTexture(internalScreenWidth, internalScreenHeight);
         depthTexture = CreateDepthTexture();
 
-        checkerBoardTexture = LoadTexture("Assets/CheckerBoard.png");
-        wallTexture = LoadTexture("Assets/wall.png");
-        ceilingTexture = LoadTexture("Assets/ceiling.png", true);
-        floorTexture = LoadTexture("Assets/floor.png", true);
-        crosshairsTexture = LoadTexture("Assets/crosshairs_128.png");
+        textures.Add("checkerBoard", LoadTexture("Assets/CheckerBoard.png"));
+        textures.Add("crosshairs", LoadTexture("Assets/crosshairs_128.png"));
 
-        Texture2D enemyTex = LoadTexture("Assets/enemy.png");
+        textures.Add("wall", LoadTexture("Assets/wall.png"));
+        textures.Add("door", LoadTexture("Assets/door.png"));
+        textures.Add("ceiling", LoadTexture("Assets/ceiling.png", true));
+        textures.Add("floor", LoadTexture("Assets/floor.png", true));
 
-        sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), enemyTex));
-        sprites.Add(new Sprite(new Vector2(7.5f, 5.5f), enemyTex));
+        textures.Add("roach_red", LoadTexture("Assets/roach_red.png"));
+        textures.Add("roach_blue", LoadTexture("Assets/roach_blue.png"));
+        textures.Add("roach_green", LoadTexture("Assets/roach_green.png"));
+
+        sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), textures["roach_red"]));
+        sprites.Add(new Sprite(new Vector2(7.5f, 5.5f), textures["roach_green"]));
+        sprites.Add(new Sprite(new Vector2(7.5f, 7.5f), textures["roach_blue"]));
 
         Texture2D LoadTexture(string path, bool repeat = false)
         {
             Texture2D tex = Raylib.LoadTexture(path);
             Raylib.SetTextureFilter(tex, TextureFilter.Point);
             Raylib.SetTextureWrap(tex, repeat ? TextureWrap.Repeat : TextureWrap.Clamp);
+            //Raylib.GenTextureMipmaps(ref tex);
             return tex;
         }
     }
@@ -196,8 +199,8 @@ class Raycaster
         Raylib.SetShaderValue(floorCeilingShader, screenHeightLoc, (float)internalScreenHeight, ShaderUniformDataType.Float);
 
         // Set textures
-        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "ceilingTexture"), ceilingTexture);
-        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "floorTexture"), floorTexture);
+        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "ceilingTexture"), textures["ceiling"]);
+        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "floorTexture"), textures["floor"]);
 
         // Draw full-screen quad
         Raylib.DrawRectangle(0, 0, internalScreenWidth, internalScreenHeight, Color.White);
@@ -393,7 +396,7 @@ class Raycaster
     {
         int centerX = screenWidth / 2;
         int centerY = screenHeight / 2;
-        Raylib.DrawTexture(crosshairsTexture, centerX - crosshairsTexture.Width / 2, centerY - crosshairsTexture.Height / 2, Color.White);
+        Raylib.DrawTexture(textures["crosshairs"], centerX - textures["crosshairs"].Width / 2, centerY - textures["crosshairs"].Height / 2, Color.White);
     }
 
     static void CastRays()
@@ -536,7 +539,7 @@ class Raycaster
                 );
 
                 Raylib.DrawTexturePro(
-                    wallTexture,
+                    textures["wall"],
                     srcRect,
                     destRect,
                     Vector2.Zero,
@@ -680,11 +683,12 @@ class Raycaster
         foreach (var sprite in sprites) Raylib.UnloadTexture(sprite.Texture);
         Raylib.UnloadShader(spriteShader);
         Raylib.UnloadTexture(depthTexture);
-        Raylib.UnloadTexture(checkerBoardTexture);
-        Raylib.UnloadTexture(wallTexture);
-        Raylib.UnloadTexture(ceilingTexture);
-        Raylib.UnloadTexture(floorTexture);
-        Raylib.UnloadTexture(crosshairsTexture);
+
+        foreach (KeyValuePair<string, Texture2D> texture in textures)
+        {
+            Raylib.UnloadTexture(texture.Value);
+        }
+
         Raylib.CloseWindow();
     }
 
