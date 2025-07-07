@@ -125,6 +125,10 @@ class Raycaster
 
     static void LoadShaders()
     {
+        //Billboard sprite shader
+        spriteShader = Raylib.LoadShader(null, "Shaders/sprite.fs");
+
+        //Floor and ceiling
         floorCeilingShader = Raylib.LoadShader(null, "Shaders/floor_ceiling.fs");
 
         playerPosLoc = Raylib.GetShaderLocation(floorCeilingShader, "playerPos");
@@ -588,9 +592,7 @@ class Raycaster
         Stopwatch gameTimer = Stopwatch.StartNew();
         double lastTime = gameTimer.Elapsed.TotalSeconds;
         double currentTime = lastTime;
-
-        spriteShader = Raylib.LoadShader(null, "Shaders/sprite.fs");
-
+                
         LoadTextures();
         LoadShaders();
 
