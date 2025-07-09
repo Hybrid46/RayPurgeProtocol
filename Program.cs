@@ -36,35 +36,11 @@ class Raycaster
     static int frameCount = 0;
     static Stopwatch frameTimer = new Stopwatch();
 
-    static Shader spriteShader;
     static List<Sprite> sprites = new();
 
     const int TEXTURE_SIZE = 64;
 
-    // Mini-map settings
-    const int MAP_SCALE = 10;
-    const int MAP_SIZE = 16;
-    static readonly Vector2 MAP_POS = new Vector2(screenWidth - MAP_SIZE * MAP_SCALE - 10, 10);
-
-    // 16x16 map
-    static readonly int[,] MAP = {
-        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-        {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-        {1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1},
-        {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-        {1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1},
-        {1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1},
-        {1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1},
-        {1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,1},
-        {1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,1},
-        {1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1},
-        {1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1},
-        {1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1},
-        {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-        {1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1},
-        {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-    };
+    static int[,] MAP;
 
     // Player
     static Vector2 playerPos = new Vector2(1.5f, 1.5f);
@@ -75,6 +51,7 @@ class Raycaster
     static Color SkyColor = new Color(100, 100, 255, 255);
     static Color GroundColor = new Color(50, 50, 50, 255);
     static Color MapWallColor = new Color(100, 100, 100, 255);
+    static Color MapDoorColor = new Color(0, 0, 255, 255);
     static Color MapBgColor = new Color(30, 30, 30, 255);
     static Color PlayerColor = new Color(0, 255, 0, 255);
     static Color EnemyColor = new Color(255, 0, 0, 255);
@@ -84,7 +61,9 @@ class Raycaster
 
     static RenderTexture2D renderTarget;
 
+    static Shader spriteShader;
     static Shader floorCeilingShader;
+
     static int playerPosLoc, playerDirLoc, cameraPlaneLoc, screenWidthLoc, screenHeightLoc;
 
     //Z depth
@@ -136,6 +115,39 @@ class Raycaster
         cameraPlaneLoc = Raylib.GetShaderLocation(floorCeilingShader, "cameraPlane");
         screenWidthLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenWidth");
         screenHeightLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenHeight");
+    }
+
+    static void LoadMap(bool testMap)
+    {
+        if (testMap)
+        {
+            //Test map
+            MAP = new int[,] {
+            {1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+            {1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+            {1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1},
+            {1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1},
+            {1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1},
+            {1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,1},
+            {1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,1},
+            {1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1},
+            {1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1},
+            {1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+            {1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1},
+            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+        };
+            return;
+        }
+
+        RoomGenerator roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, 0f);
+        roomGenerator.Generate();
+        MAP = roomGenerator.intgrid;
+        roomGenerator.PrintGrid();
+        roomGenerator.PrintIntGrid();
     }
 
     //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
@@ -347,6 +359,10 @@ class Raycaster
 
     static void DrawMinimap()
     {
+        const int MAP_SCALE = 5;
+        int MAP_SIZE = MAP.GetLength(0);
+        Vector2 MAP_POS = new Vector2(screenWidth - MAP_SIZE * MAP_SCALE - 10, 10);
+
         // Draw map background
         Raylib.DrawRectangle(
             (int)MAP_POS.X,
@@ -361,14 +377,14 @@ class Raycaster
         {
             for (int x = 0; x < MAP_SIZE; x++)
             {
-                if (MAP[y, x] == 1)
+                if (MAP[y, x] > 0)
                 {
                     Raylib.DrawRectangle(
                         (int)MAP_POS.X + x * MAP_SCALE,
                         (int)MAP_POS.Y + y * MAP_SCALE,
                         MAP_SCALE,
                         MAP_SCALE,
-                        MapWallColor
+                        MAP[y, x] == 1 ? MapWallColor : MapDoorColor
                     );
                 }
             }
@@ -468,8 +484,8 @@ class Raycaster
                 }
 
                 // Check boundaries
-                if (mapX < 0 || mapX >= MAP_SIZE || mapY < 0 || mapY >= MAP_SIZE) break;
-                if (MAP[mapY, mapX] == 1) hit = true;
+                if (mapX < 0 || mapX >= MAP.GetLength(0) || mapY < 0 || mapY >= MAP.GetLength(1)) break;
+                if (MAP[mapY, mapX] > 0) hit = true;
             }
 
             if (hit)
@@ -543,7 +559,7 @@ class Raycaster
                 );
 
                 Raylib.DrawTexturePro(
-                    textures["wall"],
+                    MAP[mapY, mapX] == 1 ? textures["wall"] : textures["door"],
                     srcRect,
                     destRect,
                     Vector2.Zero,
@@ -592,9 +608,11 @@ class Raycaster
         Stopwatch gameTimer = Stopwatch.StartNew();
         double lastTime = gameTimer.Elapsed.TotalSeconds;
         double currentTime = lastTime;
-                
+
         LoadTextures();
         LoadShaders();
+
+        LoadMap(false);
 
         while (!Raylib.WindowShouldClose())
         {
@@ -723,7 +741,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.W))
         {
             Vector2 newPos = playerPos + playerDir * moveStep;
-            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+            if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.Y, (int)newPos.X] == 0)
             {
                 playerPos = newPos;
@@ -733,7 +751,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.S))
         {
             Vector2 newPos = playerPos - playerDir * moveStep;
-            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+            if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.Y, (int)newPos.X] == 0)
             {
                 playerPos = newPos;
@@ -743,7 +761,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.Q))
         {
             Vector2 newPos = playerPos + new Vector2(playerDir.Y, -playerDir.X) * moveStep;
-            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+            if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.Y, (int)newPos.X] == 0)
             {
                 playerPos = newPos;
@@ -753,7 +771,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.E))
         {
             Vector2 newPos = playerPos - new Vector2(playerDir.Y, -playerDir.X) * moveStep;
-            if (newPos.X >= 0 && newPos.X < MAP_SIZE && newPos.Y >= 0 && newPos.Y < MAP_SIZE &&
+            if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.Y, (int)newPos.X] == 0)
             {
                 playerPos = newPos;

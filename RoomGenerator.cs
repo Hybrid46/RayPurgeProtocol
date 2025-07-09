@@ -16,7 +16,8 @@ public class RoomGenerator
     public float extraDoorChance = 0.0f;
 
     public bool[,] grid { get; private set; }
-    private List<Room> rooms = new List<Room>();
+    public int[,] intgrid { get; private set; }
+    public List<Room> rooms { get; private set; } = new List<Room>();
 
     private HashSet<Vector2IntR> openSet;
     private HashSet<Vector2IntR> wallSet = new HashSet<Vector2IntR>();
@@ -28,7 +29,18 @@ public class RoomGenerator
     //TODO store room number on grid as int
     private Dictionary<Vector2IntR, Room> coordToRoomMap;
 
-    private class Room
+    public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoomSizeX, int minRoomSizeY, int maxRoomSizeY, float extraDoorChance)
+    {
+        this.gridWidth = gridWidth;
+        this.gridHeight = gridHeight;
+        this.minRoomSizeX = minRoomSizeX;
+        this.maxRoomSizeX = maxRoomSizeX;
+        this.minRoomSizeY = minRoomSizeY;
+        this.maxRoomSizeY = maxRoomSizeY;
+        this.extraDoorChance = extraDoorChance;
+    }
+
+    public class Room
     {
         public HashSet<Vector2IntR> coords;
         public HashSet<Vector2IntR> edgeCoords;
@@ -69,24 +81,27 @@ public class RoomGenerator
         }
     }
 
-    private class Door
+    public class Door
     {
         public Vector2IntR position;
         public Room roomA;
         public Room roomB;
+        public bool isOpen;
 
-        public Door(Vector2IntR pos, Room a, Room b)
+        public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
         {
-            position = pos;
-            roomA = a;
-            roomB = b;
+            this.position = position;
+            this.roomA = roomA;
+            this.roomB = roomB;
+            this.isOpen = isOpen;
         }
     }
 
-    void Start()
+    public void Generate()
     {
         InitializeGrid();
         GenerateRooms();
+
         foreach (Room room in rooms) room.SetEdges(this);
 
         //removing doulbe walls
@@ -97,11 +112,13 @@ public class RoomGenerator
         GenerateDoors();
 
         MapCoordsToRooms();
+        CopyRoomsToIntGrid();
     }
 
-    void InitializeGrid()
+    private void InitializeGrid()
     {
         grid = new bool[gridWidth, gridHeight];
+        intgrid = new int[gridWidth, gridHeight];
         openSet = new HashSet<Vector2IntR>(gridWidth * gridHeight);
 
         for (int x = 0; x < gridWidth; x++)
@@ -112,18 +129,20 @@ public class RoomGenerator
                 if (x == 0 || y == 0 || x == gridWidth - 1 || y == gridHeight - 1)
                 {
                     grid[x, y] = true;
+                    intgrid[x, y] = 1;
                     wallSet.Add(new Vector2IntR(x, y));
                 }
                 else
                 {
                     grid[x, y] = false;
+                    intgrid[x, y] = 0;
                     openSet.Add(new Vector2IntR(x, y));
                 }
             }
         }
     }
 
-    void GenerateRooms()
+    private void GenerateRooms()
     {
         rooms = new List<Room>();
 
@@ -132,6 +151,9 @@ public class RoomGenerator
             Vector2IntR coord = GetFirstElementFromHashSet(openSet);
             int width = Random.Range(minRoomSizeX, maxRoomSizeX + 1);
             int height = Random.Range(minRoomSizeY, maxRoomSizeY + 1);
+
+            Console.WriteLine($"Generating room at {coord} with size {width}x{height}");
+
             Room room = new Room(coord);
 
             roomSet.Add(coord);
@@ -217,7 +239,7 @@ public class RoomGenerator
 
                             if (roomSet.Contains(singleOffsetNeighbour))
                             {
-                                roomNeighbours.Add(CoordinateToRoom(singleOffsetNeighbour));
+                                roomNeighbours.Add(CoordinateToRoomSlow(singleOffsetNeighbour));
                             }
                         }
 
@@ -254,6 +276,16 @@ public class RoomGenerator
             {
                 coordToRoomMap[coord] = room;
             }
+        }
+    }
+
+    private void CopyRoomsToIntGrid()
+    {
+        foreach (Room room in rooms)
+        {
+            foreach (Vector2IntR coord in room.coords) intgrid[coord.x, coord.y] = 0;
+            foreach (Vector2IntR coord in room.walls) intgrid[coord.x, coord.y] = 1;
+            foreach (Vector2IntR coord in room.doors) intgrid[coord.x, coord.y] = 2;
         }
     }
 
@@ -318,7 +350,7 @@ public class RoomGenerator
             foreach (Vector2IntR dir in GetCardinalDirections())
             {
                 Vector2IntR neighbor = wall + dir;
-                Room room = CoordinateToRoom(neighbor);
+                Room room = CoordinateToRoomSlow(neighbor);
 
                 if (room != null && !adjacentRooms.Contains(room))
                 {
@@ -444,25 +476,25 @@ public class RoomGenerator
         return offsetDirections;
     }
 
-    private bool IsWithinGrid(Vector2IntR pos) => pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight;
+    public bool IsWithinGrid(Vector2IntR pos) => pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight;
 
-    private bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
+    public bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
 
-    private Room CoordinateToRoom(Vector2IntR coord)
+    public Room CoordinateToRoom(Vector2IntR coord)
     {
         coordToRoomMap.TryGetValue(coord, out Room room);
         return room;
     }
 
-    //private Room CoordinateToRoom(Vector2Int coord)
-    //{
-    //    foreach (Room room in rooms)
-    //    {
-    //        if (room.coords.Contains(coord)) return room;
-    //    }
+    private Room CoordinateToRoomSlow(Vector2IntR coord)
+    {
+        foreach (Room room in rooms)
+        {
+            if (room.coords.Contains(coord)) return room;
+        }
 
-    //    return null;
-    //}
+        return null;
+    }
 
     private T GetFirstElementFromHashSet<T>(HashSet<T> hashSet)
     {
@@ -474,5 +506,27 @@ public class RoomGenerator
         return default;
     }
 
-    public bool[,] GetGrid() => grid;    
+    public void PrintGrid()
+    {
+        for (int y = 0; y < gridHeight; y++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                Console.Write(grid[x, y] + " ");
+            }
+            Console.WriteLine();
+        }
+    }
+
+    public void PrintIntGrid()
+    {
+        for (int y = 0; y < gridHeight; y++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                Console.Write(intgrid[x, y] + " ");
+            }
+            Console.WriteLine();
+        }
+    }
 }
