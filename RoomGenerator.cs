@@ -112,7 +112,7 @@ public class RoomGenerator
         GenerateDoors();
 
         MapCoordsToRooms();
-        CopyRoomsToIntGrid();
+        //CopyRoomsToIntGrid();
     }
 
     private void InitializeGrid()
@@ -288,7 +288,7 @@ public class RoomGenerator
         {
             //foreach (Vector2IntR coord in room.coords) intgrid[coord.x, coord.y] = 0;
             //foreach (Vector2IntR coord in room.walls) intgrid[coord.x, coord.y] = 1;
-            foreach (Vector2IntR coord in room.doors) intgrid[coord.x, coord.y] = 2;
+            //foreach (Vector2IntR coord in room.doors) intgrid[coord.x, coord.y] = 2;
         }
     }
 
@@ -327,6 +327,7 @@ public class RoomGenerator
             Vector2IntR doorPos = selectedDoors[i].position;
             doorSet.Add(doorPos);
             wallSet.Remove(doorPos);
+            intgrid[doorPos.x, doorPos.y] = 2;
 
             for (int r = 0; r < rooms.Count; r++)
             {
