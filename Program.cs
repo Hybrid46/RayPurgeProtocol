@@ -146,7 +146,6 @@ class Raycaster
         RoomGenerator roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, 0f);
         roomGenerator.Generate();
         MAP = roomGenerator.intgrid;
-        roomGenerator.PrintGrid();
         roomGenerator.PrintIntGrid();
     }
 

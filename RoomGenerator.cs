@@ -159,6 +159,7 @@ public class RoomGenerator
             roomSet.Add(coord);
             rooms.Add(room);
             grid[coord.x, coord.y] = true;
+            intgrid[coord.x, coord.y] = 0;
             openSet.Remove(coord);
 
             ExpandRoom(coord, width, height, room);
@@ -182,6 +183,7 @@ public class RoomGenerator
                 room.coords.Add(offsetedCoord);
                 roomSet.Add(offsetedCoord);
                 grid[offsetedCoord.x, offsetedCoord.y] = true;
+                intgrid[offsetedCoord.x, offsetedCoord.y] = 0;
                 openSet.Remove(offsetedCoord);
             }
         }
@@ -205,6 +207,7 @@ public class RoomGenerator
                 room.walls.Add(wallCoord);
                 wallSet.Add(wallCoord);
                 grid[wallCoord.x, wallCoord.y] = true;
+                intgrid[wallCoord.x, wallCoord.y] = 1;
                 openSet.Remove(wallCoord);
             }
         }
@@ -283,8 +286,8 @@ public class RoomGenerator
     {
         foreach (Room room in rooms)
         {
-            foreach (Vector2IntR coord in room.coords) intgrid[coord.x, coord.y] = 0;
-            foreach (Vector2IntR coord in room.walls) intgrid[coord.x, coord.y] = 1;
+            //foreach (Vector2IntR coord in room.coords) intgrid[coord.x, coord.y] = 0;
+            //foreach (Vector2IntR coord in room.walls) intgrid[coord.x, coord.y] = 1;
             foreach (Vector2IntR coord in room.doors) intgrid[coord.x, coord.y] = 2;
         }
     }
@@ -504,18 +507,6 @@ public class RoomGenerator
         }
 
         return default;
-    }
-
-    public void PrintGrid()
-    {
-        for (int y = 0; y < gridHeight; y++)
-        {
-            for (int x = 0; x < gridWidth; x++)
-            {
-                Console.Write(grid[x, y] + " ");
-            }
-            Console.WriteLine();
-        }
     }
 
     public void PrintIntGrid()
