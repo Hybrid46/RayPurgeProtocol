@@ -30,9 +30,11 @@ Controls
 
     WASD: Move forward/backward and strafe
 
-    Mouse: Look around and aim
+    Mouse: Look around, aim and shoot
 
     Q/E: Quick strafe left/right
+
+    F: Open Door / Interaction
 
     ESC: Quit game
 
