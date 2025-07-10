@@ -6,6 +6,20 @@ using static Settings;
 
 class Raycaster
 {
+    private struct RayHit
+    {
+        public int mapX;
+        public int mapY;
+        public float distance;
+
+        public RayHit(int mapX, int mapY, float distance)
+        {
+            this.mapX = mapX;
+            this.mapY = mapY;
+            this.distance = distance;
+        }
+    }
+
     class Sprite
     {
         public Vector2 Position;
@@ -565,6 +579,121 @@ class Raycaster
         Raylib.EndTextureMode();
     }
 
+    private static Sprite CastShootingRay(out float hitDistance)
+    {
+        Vector2 rayDir = playerDir; // Direction player is facing
+        hitDistance = CastSingleRay(rayDir).distance; // Distance to wall hit
+
+        Sprite hitSprite = null;
+        float closestT = float.MaxValue;
+        const float spriteRadius = 0.4f; // Sprite collision radius
+
+        foreach (var sprite in sprites)
+        {
+            Vector2 toSprite = sprite.Position - playerPos;
+            float t = Vector2.Dot(toSprite, rayDir);
+
+            // Skip if behind player or too close
+            if (t < 0.1f) continue;
+
+            Vector2 closestPoint = playerPos + t * rayDir;
+            float distanceSq = Vector2.DistanceSquared(closestPoint, sprite.Position);
+
+            // Check if within sprite radius and closer than wall
+            if (distanceSq < spriteRadius * spriteRadius &&
+                t < hitDistance &&
+                t < closestT)
+            {
+                closestT = t;
+                hitSprite = sprite;
+            }
+        }
+
+        return hitSprite;
+    }
+
+    private static RayHit CastSingleRay(Vector2 rayDir)
+    {
+        // DDA setup
+        int mapX = (int)playerPos.X;
+        int mapY = (int)playerPos.Y;
+
+        // Avoid division by zero
+        Vector2 deltaDist = new Vector2(
+            (rayDir.X == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.X),
+            (rayDir.Y == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.Y)
+        );
+
+        Vector2 sideDist;
+        int stepX = rayDir.X < 0 ? -1 : 1;
+        int stepY = rayDir.Y < 0 ? -1 : 1;
+
+        // Initial side distances
+        sideDist.X = rayDir.X < 0
+            ? (playerPos.X - mapX) * deltaDist.X
+            : (mapX + 1.0f - playerPos.X) * deltaDist.X;
+
+        sideDist.Y = rayDir.Y < 0
+            ? (playerPos.Y - mapY) * deltaDist.Y
+            : (mapY + 1.0f - playerPos.Y) * deltaDist.Y;
+
+        // DDA
+        int side = 0;
+        bool hit = false;
+
+        while (!hit)
+        {
+            if (sideDist.X < sideDist.Y)
+            {
+                sideDist.X += deltaDist.X;
+                mapX += stepX;
+                side = 0;
+            }
+            else
+            {
+                sideDist.Y += deltaDist.Y;
+                mapY += stepY;
+                side = 1;
+            }
+
+            // Check boundaries
+            if (mapX < 0 || mapX >= MAP.GetLength(0) || mapY < 0 || mapY >= MAP.GetLength(1))
+                return new RayHit(-1, -1, float.MaxValue);  // Ray went out of bounds
+
+            if (mapY >= 0 && mapY < MAP.GetLength(0) &&
+               mapX >= 0 && mapX < MAP.GetLength(1) &&
+               MAP[mapY, mapX] > 0)
+            {
+                hit = true;
+            }
+        }
+
+        // Calculate perpendicular distance
+        float perpWallDist = side == 0
+            ? (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X
+            : (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
+
+        return new RayHit(mapY, mapX, MathF.Abs(perpWallDist));
+    }
+
+    private static void ToggleDoor()
+    {
+        RayHit hit = CastSingleRay(playerDir);
+
+        if (MAP[hit.mapX, hit.mapY] == 2 && hit.distance <= 1f)
+        {
+            // Toggle door state
+            Vector2IntR doorPos = new Vector2IntR(hit.mapX, hit.mapY);
+            roomGenerator.doorStates[doorPos] = !roomGenerator.doorStates[doorPos];
+
+            // Update map for pathfinding
+            MAP[doorPos.x, doorPos.y] = roomGenerator.doorStates[doorPos] ? 0 : 2; // 0 = walkable
+
+            Console.WriteLine($"Toggled door at ({doorPos.x},{doorPos.y}) - Now {(roomGenerator.doorStates[doorPos] ? "OPEN" : "CLOSED")}");
+            return;
+        }
+    }
+
     static void Main()
     {
         Console.WriteLine("Initializing ...");
@@ -752,9 +881,10 @@ class Raycaster
         }
 
         //Interact (closest door, other interactables)
-        if (Raylib.IsKeyDown(KeyboardKey.Space))
+        if (Raylib.IsKeyDown(KeyboardKey.F))
         {
-
+            ToggleDoor();
+            //other interactions
         }
     }
 
@@ -774,6 +904,22 @@ class Raycaster
         {
             playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-mouseRotationStep));
             cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
+        }
+
+        if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+        {
+            float wallDist;
+            Sprite hitEnemy = CastShootingRay(out wallDist);
+
+            if (hitEnemy != null)
+            {
+                // Handle hit enemy
+                sprites.Remove(hitEnemy);
+                Console.WriteLine("Hit enemy!");
+
+                // Optional: Play hit sound
+                // Raylib.PlaySound(hitSound);
+            }
         }
     }
 

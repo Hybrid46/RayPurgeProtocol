@@ -24,6 +24,8 @@ public class RoomGenerator
     private HashSet<Vector2IntR> roomSet = new HashSet<Vector2IntR>();
     private HashSet<Vector2IntR> doorSet = new HashSet<Vector2IntR>();
 
+    public Dictionary<Vector2IntR, bool> doorStates = new Dictionary<Vector2IntR, bool>();
+
     private HashSet<Vector2IntR> removedDoubleWalls;
 
     //TODO store room number on grid as int
@@ -111,8 +113,11 @@ public class RoomGenerator
         //Doors
         GenerateDoors();
 
+        // Initialize all doors as closed
+        doorStates = new Dictionary<Vector2IntR, bool>(doorSet.Count);
+        foreach (Vector2IntR doorPos in doorSet) doorStates.Add(doorPos, false);
+
         MapCoordsToRooms();
-        //CopyRoomsToIntGrid();
     }
 
     private void InitializeGrid()
@@ -279,16 +284,6 @@ public class RoomGenerator
             {
                 coordToRoomMap[coord] = room;
             }
-        }
-    }
-
-    private void CopyRoomsToIntGrid()
-    {
-        foreach (Room room in rooms)
-        {
-            //foreach (Vector2IntR coord in room.coords) intgrid[coord.x, coord.y] = 0;
-            //foreach (Vector2IntR coord in room.walls) intgrid[coord.x, coord.y] = 1;
-            //foreach (Vector2IntR coord in room.doors) intgrid[coord.x, coord.y] = 2;
         }
     }
 
