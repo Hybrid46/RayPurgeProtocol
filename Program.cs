@@ -11,13 +11,17 @@ class Raycaster
         public int mapX;
         public int mapY;
         public float distance;
+        public int side; // -1: not hit, 0: x-side, 1: y-side
 
-        public RayHit(int mapX, int mapY, float distance)
+        public RayHit(int mapX, int mapY, float distance, int side)
         {
             this.mapX = mapX;
             this.mapY = mapY;
             this.distance = distance;
+            this.side = side;
         }
+
+        public bool IsHit() => side >= 0;
     }
 
     class Sprite
@@ -408,6 +412,76 @@ class Raycaster
         Raylib.DrawTexture(textures["crosshairs"], centerX - textures["crosshairs"].Width / 2, centerY - textures["crosshairs"].Height / 2, Color.White);
     }
 
+    private static RayHit CastDDA(Vector2 rayDir, Vector2 position, int[,] map) => CastDDA(rayDir.X, rayDir.Y, position.X, position.Y, map);
+    private static RayHit CastDDA(float rayDirX, float rayDirY, float posX, float posY, int[,] map)
+    {
+        Vector2 rayDir = new Vector2(rayDirX, rayDirY);
+
+        // DDA setup
+        int mapX = (int)posX;
+        int mapY = (int)posY;
+
+        // Avoid division by zero
+        Vector2 deltaDist = new Vector2(
+            (rayDir.X == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.X),
+            (rayDir.Y == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.Y)
+        );
+
+        Vector2 sideDist;
+        int stepX = rayDir.X < 0 ? -1 : 1;
+        int stepY = rayDir.Y < 0 ? -1 : 1;
+
+        // Initial side distances
+        sideDist.X = rayDir.X < 0 ?
+            (posX - mapX) * deltaDist.X :
+            (mapX + 1.0f - posX) * deltaDist.X;
+
+        sideDist.Y = rayDir.Y < 0 ?
+            (posY - mapY) * deltaDist.Y :
+            (mapY + 1.0f - posY) * deltaDist.Y;
+
+        // DDA
+        int side = 0;
+        bool hit = false;
+
+        while (!hit)
+        {
+            if (sideDist.X < sideDist.Y)
+            {
+                sideDist.X += deltaDist.X;
+                mapX += stepX;
+                side = 0;
+            }
+            else
+            {
+                sideDist.Y += deltaDist.Y;
+                mapY += stepY;
+                side = 1;
+            }
+
+            // Check boundaries
+            if (mapX < 0 || mapX >= map.GetLength(0) || mapY < 0 || mapY >= map.GetLength(1)) break;
+            if (map[mapY, mapX] > 0) hit = true;
+        }
+
+        if (hit)
+        {
+            // Calculate distance
+            float perpWallDist = side == 0 ?
+                (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
+                (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
+
+            perpWallDist = MathF.Abs(perpWallDist);
+            perpWallDist = MathF.Max(perpWallDist, 0.01f);
+
+            return new RayHit(mapY, mapX, perpWallDist, side);
+        }
+        else // No hit
+        {
+            return new RayHit(-1, -1, float.MaxValue, -1);
+        }
+    }
+
     static void CastRays()
     {
         Raylib.BeginTextureMode(renderTarget);
@@ -581,8 +655,7 @@ class Raycaster
 
     private static Sprite CastShootingRay(out float hitDistance)
     {
-        Vector2 rayDir = playerDir; // Direction player is facing
-        hitDistance = CastSingleRay(rayDir).distance; // Distance to wall hit
+        hitDistance = CastDDA(playerDir, playerPos, MAP).distance; // Distance to wall hit
 
         Sprite hitSprite = null;
         float closestT = float.MaxValue;
@@ -591,12 +664,12 @@ class Raycaster
         foreach (var sprite in sprites)
         {
             Vector2 toSprite = sprite.Position - playerPos;
-            float t = Vector2.Dot(toSprite, rayDir);
+            float t = Vector2.Dot(toSprite, playerDir);
 
             // Skip if behind player or too close
             if (t < 0.1f) continue;
 
-            Vector2 closestPoint = playerPos + t * rayDir;
+            Vector2 closestPoint = playerPos + t * playerDir;
             float distanceSq = Vector2.DistanceSquared(closestPoint, sprite.Position);
 
             // Check if within sprite radius and closer than wall
@@ -612,73 +685,9 @@ class Raycaster
         return hitSprite;
     }
 
-    private static RayHit CastSingleRay(Vector2 rayDir)
-    {
-        // DDA setup
-        int mapX = (int)playerPos.X;
-        int mapY = (int)playerPos.Y;
-
-        // Avoid division by zero
-        Vector2 deltaDist = new Vector2(
-            (rayDir.X == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.X),
-            (rayDir.Y == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.Y)
-        );
-
-        Vector2 sideDist;
-        int stepX = rayDir.X < 0 ? -1 : 1;
-        int stepY = rayDir.Y < 0 ? -1 : 1;
-
-        // Initial side distances
-        sideDist.X = rayDir.X < 0
-            ? (playerPos.X - mapX) * deltaDist.X
-            : (mapX + 1.0f - playerPos.X) * deltaDist.X;
-
-        sideDist.Y = rayDir.Y < 0
-            ? (playerPos.Y - mapY) * deltaDist.Y
-            : (mapY + 1.0f - playerPos.Y) * deltaDist.Y;
-
-        // DDA
-        int side = 0;
-        bool hit = false;
-
-        while (!hit)
-        {
-            if (sideDist.X < sideDist.Y)
-            {
-                sideDist.X += deltaDist.X;
-                mapX += stepX;
-                side = 0;
-            }
-            else
-            {
-                sideDist.Y += deltaDist.Y;
-                mapY += stepY;
-                side = 1;
-            }
-
-            // Check boundaries
-            if (mapX < 0 || mapX >= MAP.GetLength(0) || mapY < 0 || mapY >= MAP.GetLength(1))
-                return new RayHit(-1, -1, float.MaxValue);  // Ray went out of bounds
-
-            if (mapY >= 0 && mapY < MAP.GetLength(0) &&
-               mapX >= 0 && mapX < MAP.GetLength(1) &&
-               MAP[mapY, mapX] > 0)
-            {
-                hit = true;
-            }
-        }
-
-        // Calculate perpendicular distance
-        float perpWallDist = side == 0
-            ? (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X
-            : (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
-
-        return new RayHit(mapY, mapX, MathF.Abs(perpWallDist));
-    }
-
     private static void ToggleDoor()
     {
-        RayHit hit = CastSingleRay(playerDir);
+        RayHit hit = CastDDA(playerDir, playerPos, MAP);
 
         if (MAP[hit.mapX, hit.mapY] == 2 && hit.distance <= 1f)
         {
