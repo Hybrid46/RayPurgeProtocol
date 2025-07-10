@@ -25,6 +25,7 @@ public static class Settings
     public static float moveSpeed = 3.0f;
     public static float rotationSpeed = 3.0f;
     public static float mouseRotationSpeed = 4.0f;
+    public static float FOV = 0.9f;
 
     private const string SETTINGS_FILE = "settings.cfg";
 
@@ -44,6 +45,7 @@ public static class Settings
         moveSpeed = 3.0f;
         rotationSpeed = 3.0f;
         mouseRotationSpeed = 4.0f;
+        FOV = 0.9f;
         fixedDeltaTime = 1.0f / targetUPS;
     }
 
@@ -121,6 +123,10 @@ public static class Settings
                 float.TryParse(mouseRotSpeedStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float mouseRotSpeedVal))
                 mouseRotationSpeed = mouseRotSpeedVal;
 
+            if (loadedSettings.TryGetValue(nameof(FOV), out string FOVStr) &&
+                float.TryParse(FOVStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float FOVVal))
+                FOV = FOVVal;
+
             // Update derived values
             fixedDeltaTime = 1.0f / Math.Max(targetUPS, 1);
 
@@ -166,6 +172,7 @@ public static class Settings
                 writer.WriteLine($"{nameof(moveSpeed)}={moveSpeed.ToString(CultureInfo.InvariantCulture)}");
                 writer.WriteLine($"{nameof(rotationSpeed)}={rotationSpeed.ToString(CultureInfo.InvariantCulture)}");
                 writer.WriteLine($"{nameof(mouseRotationSpeed)}={mouseRotationSpeed.ToString(CultureInfo.InvariantCulture)}");
+                writer.WriteLine($"{nameof(FOV)}={FOV.ToString(CultureInfo.InvariantCulture)}");
             }
             Console.WriteLine("Settings saved successfully.");
         }

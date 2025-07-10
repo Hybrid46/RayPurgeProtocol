@@ -45,11 +45,9 @@ class Raycaster
     // Player
     static Vector2 playerPos = new Vector2(1.5f, 1.5f);
     static Vector2 playerDir = new Vector2(1, 0);
-    static Vector2 cameraPlane = new Vector2(0, 0.9f); //TODO FOV
+    static Vector2 cameraPlane = new Vector2(0, FOV);
 
     // Colors
-    static Color SkyColor = new Color(100, 100, 255, 255);
-    static Color GroundColor = new Color(50, 50, 50, 255);
     static Color MapWallColor = new Color(100, 100, 100, 255);
     static Color MapDoorColor = new Color(0, 0, 255, 255);
     static Color MapBgColor = new Color(30, 30, 30, 255);
@@ -70,6 +68,8 @@ class Raycaster
     static Texture2D depthTexture;
     static float[] zBuffer = new float[internalScreenWidth];
     static float maxZ = 0f;
+
+    static RoomGenerator roomGenerator;
 
     static void LoadTextures()
     {
@@ -117,33 +117,9 @@ class Raycaster
         screenHeightLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenHeight");
     }
 
-    static void LoadMap(bool testMap)
+    static void LoadMap()
     {
-        if (testMap)
-        {
-            //Test map
-            MAP = new int[,] {
-            {1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1},
-            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-            {1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1},
-            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-            {1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1},
-            {1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1},
-            {1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1},
-            {1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,1},
-            {1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,1},
-            {1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1},
-            {1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1},
-            {1,0,1,0,0,1,0,1,1,0,1,0,0,1,0,1},
-            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-            {1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1},
-            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-        };
-            return;
-        }
-
-        RoomGenerator roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, 0f);
+        roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, 0f);
         roomGenerator.Generate();
         MAP = roomGenerator.intgrid;
         roomGenerator.PrintIntGrid();
@@ -421,8 +397,7 @@ class Raycaster
     static void CastRays()
     {
         Raylib.BeginTextureMode(renderTarget);
-        //Raylib.ClearBackground(SkyColor);
-        //Raylib.DrawRectangle(0, internalScreenHeight / 2, internalScreenWidth, internalScreenHeight / 2, GroundColor);
+
         DrawFloorAndCeiling();
 
         // Reset z-buffer
@@ -610,8 +585,7 @@ class Raycaster
 
         LoadTextures();
         LoadShaders();
-
-        LoadMap(false);
+        LoadMap();
 
         while (!Raylib.WindowShouldClose())
         {
@@ -699,9 +673,9 @@ class Raycaster
 
         // Cleanup
         Raylib.UnloadRenderTexture(renderTarget);
-        foreach (var sprite in sprites) Raylib.UnloadTexture(sprite.Texture);
-        Raylib.UnloadShader(spriteShader);
         Raylib.UnloadTexture(depthTexture);
+        Raylib.UnloadShader(spriteShader);
+        Raylib.UnloadShader(floorCeilingShader);
 
         foreach (KeyValuePair<string, Texture2D> texture in textures)
         {
@@ -775,6 +749,12 @@ class Raycaster
             {
                 playerPos = newPos;
             }
+        }
+
+        //Interact (closest door, other interactables)
+        if (Raylib.IsKeyDown(KeyboardKey.Space))
+        {
+
         }
     }
 
