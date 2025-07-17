@@ -24,18 +24,6 @@ class Raycaster
         public bool IsHit() => side >= 0;
     }
 
-    class Sprite
-    {
-        public Vector2 Position;
-        public Texture2D Texture;
-
-        public Sprite(Vector2 position, Texture2D texture)
-        {
-            Position = position;
-            Texture = texture;
-        }
-    }
-
     static float accumulator = 0f;
     static int ups = 0;
     static int upsCount = 0;
@@ -54,11 +42,10 @@ class Raycaster
     static int frameCount = 0;
     static Stopwatch frameTimer = new Stopwatch();
 
-    static List<Sprite> sprites = new();
-
     const int TEXTURE_SIZE = 64;
 
     static int[,] MAP;
+    static List<Entity> entities = new List<Entity>();
 
     // Player
     static Vector2 playerPos = new Vector2(1.5f, 1.5f);
@@ -106,10 +93,6 @@ class Raycaster
         textures.Add("roach_blue", LoadTexture("Assets/roach_blue.png"));
         textures.Add("roach_green", LoadTexture("Assets/roach_green.png"));
 
-        sprites.Add(new Sprite(new Vector2(5.5f, 5.5f), textures["roach_red"]));
-        sprites.Add(new Sprite(new Vector2(7.5f, 5.5f), textures["roach_green"]));
-        sprites.Add(new Sprite(new Vector2(7.5f, 7.5f), textures["roach_blue"]));
-
         Texture2D LoadTexture(string path, bool repeat = false)
         {
             Texture2D tex = Raylib.LoadTexture(path);
@@ -141,6 +124,49 @@ class Raycaster
         roomGenerator.Generate();
         MAP = roomGenerator.intgrid;
         roomGenerator.PrintIntGrid();
+    }
+
+    private static void LoadEnemys()
+    {
+        float spawnChance = 0.25f;
+
+        for (int i = 0; i < roomGenerator.rooms.Count; i++)
+        {
+            foreach (Vector2IntR pos in roomGenerator.rooms[i].coords)
+            {
+                if (RandomR.value < spawnChance)
+                {
+                    int randomRoachTextureIndex = RandomR.Range(0, 3);
+
+                    Texture2D roachTexture = randomRoachTextureIndex switch
+                    {
+                        0 => textures["roach_green"],
+                        1 => textures["roach_blue"],
+                        2 => textures["roach_red"],
+                        _ => textures["roach_red"]
+                    };
+
+                    if (MAP[pos.y, pos.x] != 0) continue; // Only spawn on empty tiles
+
+                    Vector2 startPosition = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
+                    entities.Add(CreateRoach(roachTexture, startPosition, randomRoachTextureIndex));
+                }
+            }
+        }
+
+        Console.WriteLine($"Loaded {entities.Count} roaches");
+
+        Entity CreateRoach(Texture2D sprite, Vector2 startPosition, int difficulty)
+        {
+            Entity roach = new Entity();
+
+            roach.AddComponent(new Transform { Position = startPosition });
+            roach.AddComponent(new HealthComponent(2 * difficulty));
+            roach.AddComponent(new RaySpriteRenderer { Texture = sprite });
+            roach.AddComponent(new RoachAI());
+
+            return roach;
+        }
     }
 
     //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
@@ -217,12 +243,19 @@ class Raycaster
         Raylib.EndShaderMode();
     }
 
-    static void DrawSprites()
+    static void DrawEntitys()
     {
-        // Sort sprites by distance (far to near)
-        sprites.Sort((a, b) =>
-            (b.Position - playerPos).LengthSquared().CompareTo((a.Position - playerPos).LengthSquared())
-        );
+        float drawDistance = 50f; // Max distance to draw entities
+
+        // Sort Entites by distance (far to near)
+        entities.Sort((a, b) =>
+        {
+            Transform aTransform = a.GetComponent<Transform>();
+            Transform bTransform = b.GetComponent<Transform>();
+            float distA = Vector2.DistanceSquared(aTransform.Position, playerPos);
+            float distB = Vector2.DistanceSquared(bTransform.Position, playerPos);
+            return distB.CompareTo(distA);
+        });
 
         Raylib.BeginBlendMode(BlendMode.Alpha);
 
@@ -230,8 +263,10 @@ class Raycaster
         int depthTexLoc = Raylib.GetShaderLocation(spriteShader, "depthTexture");
         Raylib.SetShaderValueTexture(spriteShader, depthTexLoc, depthTexture);
 
-        foreach (var sprite in sprites)
+        foreach (Entity entity in entities)
         {
+            RaySpriteRenderer sprite = entity.GetComponent<RaySpriteRenderer>();
+
             // Transform sprite position relative to camera
             Vector2 spritePos = sprite.Position - playerPos;
             float invDet = 1.0f / (cameraPlane.X * playerDir.Y - playerDir.X * cameraPlane.Y);
@@ -395,11 +430,13 @@ class Raycaster
         );
         Raylib.DrawLine(playerMapX, playerMapY, (int)endPos.X, (int)endPos.Y, Color.White);
 
-        // Draw enemys
-        foreach (Sprite sprite in sprites)
+        // Draw Enemys
+        foreach (Entity entity in entities)
         {
-            int posX = (int)(MAP_POS.X + sprite.Position.X * MAP_SCALE);
-            int posY = (int)(MAP_POS.Y + sprite.Position.Y * MAP_SCALE);
+            Transform transform = entity.GetComponent<Transform>();
+
+            int posX = (int)(MAP_POS.X + transform.Position.X * MAP_SCALE);
+            int posY = (int)(MAP_POS.Y + transform.Position.Y * MAP_SCALE);
             Raylib.DrawCircle(posX, posY, 3, EnemyColor);
         }
     }
@@ -641,7 +678,7 @@ class Raycaster
         depthTextureTimeMs = depthTimer.Elapsed.TotalMilliseconds;
 
         Stopwatch spriteTimer = Stopwatch.StartNew();
-        DrawSprites();
+        DrawEntitys();
         spriteTimer.Stop();
         spriteDrawTimeMs = spriteTimer.Elapsed.TotalMilliseconds;
 
@@ -653,24 +690,26 @@ class Raycaster
         Raylib.EndTextureMode();
     }
 
-    private static Sprite CastShootingRay(out float hitDistance)
+    private static Entity CastShootingRay(out float hitDistance)
     {
         hitDistance = CastDDA(playerDir, playerPos, MAP).distance; // Distance to wall hit
 
-        Sprite hitSprite = null;
+        Entity hitEnemy = null;
         float closestT = float.MaxValue;
         const float spriteRadius = 0.4f; // Sprite collision radius
 
-        foreach (var sprite in sprites)
+        foreach (Entity entity in entities)
         {
-            Vector2 toSprite = sprite.Position - playerPos;
+            Transform transform = entity.GetComponent<Transform>();
+
+            Vector2 toSprite = transform.Position - playerPos;
             float t = Vector2.Dot(toSprite, playerDir);
 
             // Skip if behind player or too close
             if (t < 0.1f) continue;
 
             Vector2 closestPoint = playerPos + t * playerDir;
-            float distanceSq = Vector2.DistanceSquared(closestPoint, sprite.Position);
+            float distanceSq = Vector2.DistanceSquared(closestPoint, transform.Position);
 
             // Check if within sprite radius and closer than wall
             if (distanceSq < spriteRadius * spriteRadius &&
@@ -678,11 +717,11 @@ class Raycaster
                 t < closestT)
             {
                 closestT = t;
-                hitSprite = sprite;
+                hitEnemy = entity;
             }
         }
 
-        return hitSprite;
+        return hitEnemy;
     }
 
     private static void ToggleDoor()
@@ -724,6 +763,7 @@ class Raycaster
         LoadTextures();
         LoadShaders();
         LoadMap();
+        LoadEnemys();
 
         while (!Raylib.WindowShouldClose())
         {
@@ -827,6 +867,32 @@ class Raycaster
     {
         HandleKeyboard();
         HandleMouse();
+        HandleEntites();
+    }
+
+    private static void HandleEntites()
+    {
+        Stack<Entity> entitiesToRemove = new Stack<Entity>();
+
+        foreach (Entity entity in entities)
+        {
+            entity.GetComponent<RoachAI>().targetPosition = playerPos;
+
+            entity.Update();
+
+            //Remove dead entites
+            if (entity.GetComponent<HealthComponent>().CurrentHP <= 0)
+            {
+                entitiesToRemove.Push(entity);
+            }
+        }
+
+        while (entitiesToRemove.Count > 0)
+        {
+            Entity entity = entitiesToRemove.Pop();
+            entities.Remove(entity);
+            Console.WriteLine($"Removed entity: {entity}");
+        }
     }
 
     private static void HandleKeyboard()
@@ -918,12 +984,11 @@ class Raycaster
         if (Raylib.IsMouseButtonPressed(MouseButton.Left))
         {
             float wallDist;
-            Sprite hitEnemy = CastShootingRay(out wallDist);
+            Entity hitEnemy = CastShootingRay(out wallDist);
 
             if (hitEnemy != null)
             {
-                // Handle hit enemy
-                sprites.Remove(hitEnemy);
+                hitEnemy.GetComponent<HealthComponent>().TakeDamage(1);
                 Console.WriteLine("Hit enemy!");
 
                 // Optional: Play hit sound
