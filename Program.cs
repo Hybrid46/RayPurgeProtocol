@@ -161,7 +161,7 @@ class Raycaster
             Entity roach = new Entity();
 
             roach.AddComponent(new Transform { Position = startPosition });
-            roach.AddComponent(new HealthComponent(2 * difficulty));
+            roach.AddComponent(new HealthComponent(difficulty + 1));
             roach.AddComponent(new RaySpriteRenderer { Texture = sprite });
             roach.AddComponent(new RoachAI());
 
