@@ -50,12 +50,14 @@ public class RoomGenerator
         public HashSet<Vector2IntR> doors;
         public Vector2IntR startCoord { get; private set; }
         public Color color { get; private set; }
+        public HashSet<Room> neighbourRooms;
 
         public Room(Vector2IntR startPosition)
         {
             walls = new HashSet<Vector2IntR>();
             doors = new HashSet<Vector2IntR>();
             coords = new HashSet<Vector2IntR> { startPosition };
+            neighbourRooms = new HashSet<Room>();
             this.startCoord = startPosition;
             color = new Color(Random.Range(0f, 1f), Random.Range(0f, 1f), Random.Range(0f, 1f), 0.4f);
         }
@@ -118,6 +120,7 @@ public class RoomGenerator
         foreach (Vector2IntR doorPos in doorSet) doorStates.Add(doorPos, false);
 
         MapCoordsToRooms();
+        MapRoomNeighbours();
     }
 
     private void InitializeGrid()
@@ -283,6 +286,26 @@ public class RoomGenerator
             foreach (Vector2IntR coord in room.coords)
             {
                 coordToRoomMap[coord] = room;
+            }
+        }
+    }
+
+    private void MapRoomNeighbours()
+    {
+        foreach (Room room in rooms)
+        {
+            foreach (Room roomNeighbour in rooms)
+            {
+                if (room == roomNeighbour) continue;
+
+                foreach (Vector2IntR wall in room.walls)
+                {
+                    if (roomNeighbour.walls.Contains(wall))
+                    {
+                        room.neighbourRooms.Add(roomNeighbour);
+                        break;
+                    }
+                }
             }
         }
     }
