@@ -17,13 +17,11 @@ public class RoachAI : Component, IUpdatable
     
     public void Update()
     {
-        Transform transform = Entity.GetComponent<Transform>();
-
-        if (Vector2.Distance(transform.Position, targetPosition) > 1f)
+        if (Vector2.Distance(Entity.transform.Position, targetPosition) > 1f)
         {
             CurrentState = State.Moving;
-            Vector2 direction = Vector2.Normalize(targetPosition - transform.Position);
-            transform.Position += direction * moveSpeed * Settings.fixedDeltaTime;
+            Vector2 direction = Vector2.Normalize(targetPosition - Entity.transform.Position);
+            Entity.transform.Position += direction * moveSpeed * Settings.fixedDeltaTime;
         }
     }
 }

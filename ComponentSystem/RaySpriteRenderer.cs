@@ -6,7 +6,7 @@ using System.Collections.Generic;
 public class RaySpriteRenderer : Component
 {
     public Texture2D Texture { get; set; }
-    public Vector2 Position => Entity.GetComponent<Transform>().Position;
+    public Vector2 Position => Entity.transform.Position;
 
     public void Draw()
     {

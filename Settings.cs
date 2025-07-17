@@ -20,6 +20,7 @@ public static class Settings
     public static int targetFPS = 60;
     public static int targetUPS = 60;
     public static float fixedDeltaTime = 1.0f / 60.0f;
+    public static float drawDistance = 50.0f;
 
     // Gameplay settings
     public static float moveSpeed = 3.0f;
@@ -47,6 +48,7 @@ public static class Settings
         mouseRotationSpeed = 4.0f;
         FOV = 0.9f;
         fixedDeltaTime = 1.0f / targetUPS;
+        drawDistance = 50.0f;
     }
 
     public static void LoadSettings()
@@ -126,6 +128,10 @@ public static class Settings
             if (loadedSettings.TryGetValue(nameof(FOV), out string FOVStr) &&
                 float.TryParse(FOVStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float FOVVal))
                 FOV = FOVVal;
+            
+            if (loadedSettings.TryGetValue(nameof(drawDistance), out string drawDistanceStr) &&
+                float.TryParse(drawDistanceStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float drawDistanceVal))
+                drawDistance = drawDistanceVal;
 
             // Update derived values
             fixedDeltaTime = 1.0f / Math.Max(targetUPS, 1);
@@ -165,6 +171,7 @@ public static class Settings
                 writer.WriteLine($"# Performance Settings");
                 writer.WriteLine($"{nameof(targetFPS)}={targetFPS}");
                 writer.WriteLine($"{nameof(targetUPS)}={targetUPS}");
+                writer.WriteLine($"{nameof(drawDistance)}={drawDistance}");
                 writer.WriteLine();
 
                 // Gameplay settings

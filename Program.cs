@@ -245,15 +245,14 @@ class Raycaster
 
     static void DrawEntitys()
     {
-        float drawDistance = 50f; // Max distance to draw entities
+        //TODO Draw only visible entities -> spatial hashing -> map[x,y]
 
+        //TODO Sort only visibles
         // Sort Entites by distance (far to near)
         entities.Sort((a, b) =>
         {
-            Transform aTransform = a.GetComponent<Transform>();
-            Transform bTransform = b.GetComponent<Transform>();
-            float distA = Vector2.DistanceSquared(aTransform.Position, playerPos);
-            float distB = Vector2.DistanceSquared(bTransform.Position, playerPos);
+            float distA = Vector2.DistanceSquared(a.transform.Position, playerPos);
+            float distB = Vector2.DistanceSquared(b.transform.Position, playerPos);
             return distB.CompareTo(distA);
         });
 
@@ -265,6 +264,8 @@ class Raycaster
 
         foreach (Entity entity in entities)
         {
+            if (Vector2.Distance(playerPos, entity.transform.Position) > drawDistance) continue;
+            
             RaySpriteRenderer sprite = entity.GetComponent<RaySpriteRenderer>();
 
             // Transform sprite position relative to camera
@@ -433,10 +434,8 @@ class Raycaster
         // Draw Enemys
         foreach (Entity entity in entities)
         {
-            Transform transform = entity.GetComponent<Transform>();
-
-            int posX = (int)(MAP_POS.X + transform.Position.X * MAP_SCALE);
-            int posY = (int)(MAP_POS.Y + transform.Position.Y * MAP_SCALE);
+            int posX = (int)(MAP_POS.X + entity.transform.Position.X * MAP_SCALE);
+            int posY = (int)(MAP_POS.Y + entity.transform.Position.Y * MAP_SCALE);
             Raylib.DrawCircle(posX, posY, 3, EnemyColor);
         }
     }
@@ -700,16 +699,14 @@ class Raycaster
 
         foreach (Entity entity in entities)
         {
-            Transform transform = entity.GetComponent<Transform>();
-
-            Vector2 toSprite = transform.Position - playerPos;
+            Vector2 toSprite = entity.transform.Position - playerPos;
             float t = Vector2.Dot(toSprite, playerDir);
 
             // Skip if behind player or too close
             if (t < 0.1f) continue;
 
             Vector2 closestPoint = playerPos + t * playerDir;
-            float distanceSq = Vector2.DistanceSquared(closestPoint, transform.Position);
+            float distanceSq = Vector2.DistanceSquared(closestPoint, entity.transform.Position);
 
             // Check if within sprite radius and closer than wall
             if (distanceSq < spriteRadius * spriteRadius &&
