@@ -3,6 +3,8 @@ using System.Numerics;
 using Raylib_cs;
 using Color = Raylib_cs.Color;
 using static Settings;
+using static RoomGenerator;
+using System.Security.Cryptography;
 
 class Raycaster
 {
@@ -31,10 +33,6 @@ class Raycaster
     static double updateTimeMs = 0;
 
     // Performance metrics
-    static double rayLoopTimeMs = 0;
-    static double spriteDrawTimeMs = 0;
-    static double zBufferDrawTimeMs = 0;
-    static double depthTextureTimeMs = 0;
     static double totalFrameTimeMs = 0;
     static double minFrameTime = double.MaxValue;
     static double maxFrameTime = 0;
@@ -48,9 +46,12 @@ class Raycaster
     static List<Entity> entities = new List<Entity>();
 
     // Player
+    static Entity playerEntity;
     static Vector2 playerPos = new Vector2(1.5f, 1.5f);
     static Vector2 playerDir = new Vector2(1, 0);
     static Vector2 cameraPlane = new Vector2(0, FOV);
+
+    static HPAStar pathfindingSystem;
 
     // Colors
     static Color MapWallColor = new Color(100, 100, 100, 255);
@@ -124,6 +125,12 @@ class Raycaster
         roomGenerator.Generate();
         MAP = roomGenerator.intgrid;
         roomGenerator.PrintIntGrid();
+
+        //Debug the starting room
+        roomGenerator.PrintRoom(0);
+        foreach (Room neighbour in roomGenerator.rooms[0].neighbourRooms) roomGenerator.PrintRoom(neighbour);
+
+        pathfindingSystem = new HPAStar(roomGenerator);
     }
 
     private static void LoadEnemys()
@@ -164,9 +171,26 @@ class Raycaster
             roach.AddComponent(new HealthComponent(difficulty + 1));
             roach.AddComponent(new RaySpriteRenderer { Texture = sprite });
             roach.AddComponent(new RoachAI());
+            roach.GetComponent<RoachAI>().Initialize(pathfindingSystem);
 
             return roach;
         }
+    }
+
+    static void CreatePlayer()
+    {
+        playerEntity = new Entity();
+        playerEntity.AddComponent(new Transform
+        {
+            Position = new Vector2(1.5f, 1.5f)
+        });
+
+        playerEntity.AddComponent(new PlayerController
+        {
+            MoveSpeed = 5.0f,
+            RotationSpeed = 3.0f,
+            MouseRotationSpeed = 0.1f
+        });
     }
 
     //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
@@ -207,10 +231,10 @@ class Raycaster
         Raylib.DrawRectangleLines(startX - 5, startY - 5, 320, 230, Color.DarkGray);
 
         // Draw metrics
-        Raylib.DrawText($"Ray Loop: {rayLoopTimeMs:F2} ms", startX, startY, lineHeight, Color.Green);
-        Raylib.DrawText($"Sprite draw: {spriteDrawTimeMs:F2} ms", startX, startY + lineHeight, lineHeight, Color.Green);
-        Raylib.DrawText($"Z-Buffer draw: {zBufferDrawTimeMs:F2} ms", startX, startY + lineHeight * 2, lineHeight, Color.Green);
-        Raylib.DrawText($"Depth Texture: {depthTextureTimeMs:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Green);
+        Raylib.DrawText($"Ray Loop: {PerformanceMonitor.RayLoopTime:F2} ms", startX, startY, lineHeight, Color.Green);
+        Raylib.DrawText($"Sprite draw: {PerformanceMonitor.SpriteDrawTime:F2} ms", startX, startY + lineHeight, lineHeight, Color.Green);
+        Raylib.DrawText($"Z-Buffer draw: {PerformanceMonitor.zBufferDrawTime:F2} ms", startX, startY + lineHeight * 2, lineHeight, Color.Green);
+        Raylib.DrawText($"Depth Texture: {PerformanceMonitor.depthTextureTime:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Green);
         Raylib.DrawText($"Update time: {updateTimeMs:F2} ms", startX, startY + lineHeight * 4, lineHeight, Color.Lime);
         Raylib.DrawText($"Total Frame time: {totalFrameTimeMs:F2} ms", startX, startY + lineHeight * 5, lineHeight, Color.Yellow);
         Raylib.DrawText($"FPS: {Raylib.GetFPS()}", startX, startY + lineHeight * 6, lineHeight, Color.Yellow);
@@ -265,7 +289,7 @@ class Raycaster
         foreach (Entity entity in entities)
         {
             if (Vector2.Distance(playerPos, entity.transform.Position) > drawDistance) continue;
-            
+
             RaySpriteRenderer sprite = entity.GetComponent<RaySpriteRenderer>();
 
             // Transform sprite position relative to camera
@@ -528,163 +552,161 @@ class Raycaster
         Array.Fill(zBuffer, 10000f);
         maxZ = 0f;
 
-        Stopwatch rayTimer = Stopwatch.StartNew();
-
-        for (int x = 0; x < internalScreenWidth; x++)
+        using (PerformanceMonitor.Measure(t => PerformanceMonitor.RayLoopTime = t))
         {
-            // Calculate ray direction with internal width
-            float cameraX = 2 * x / (float)internalScreenWidth - 1;
-            Vector2 rayDir = new Vector2(
-                playerDir.X + cameraPlane.X * cameraX,
-                playerDir.Y + cameraPlane.Y * cameraX
-            );
-
-            // DDA setup
-            int mapX = (int)playerPos.X;
-            int mapY = (int)playerPos.Y;
-
-            // Avoid division by zero
-            Vector2 deltaDist = new Vector2(
-                (rayDir.X == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.X),
-                (rayDir.Y == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.Y)
-            );
-
-            Vector2 sideDist;
-            int stepX = rayDir.X < 0 ? -1 : 1;
-            int stepY = rayDir.Y < 0 ? -1 : 1;
-
-            // Initial side distances
-            sideDist.X = rayDir.X < 0 ?
-                (playerPos.X - mapX) * deltaDist.X :
-                (mapX + 1.0f - playerPos.X) * deltaDist.X;
-
-            sideDist.Y = rayDir.Y < 0 ?
-                (playerPos.Y - mapY) * deltaDist.Y :
-                (mapY + 1.0f - playerPos.Y) * deltaDist.Y;
-
-            // DDA
-            int side = 0;
-            bool hit = false;
-
-            while (!hit)
+            for (int x = 0; x < internalScreenWidth; x++)
             {
-                if (sideDist.X < sideDist.Y)
+                // Calculate ray direction with internal width
+                float cameraX = 2 * x / (float)internalScreenWidth - 1;
+                Vector2 rayDir = new Vector2(
+                    playerDir.X + cameraPlane.X * cameraX,
+                    playerDir.Y + cameraPlane.Y * cameraX
+                );
+
+                // DDA setup
+                int mapX = (int)playerPos.X;
+                int mapY = (int)playerPos.Y;
+
+                // Avoid division by zero
+                Vector2 deltaDist = new Vector2(
+                    (rayDir.X == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.X),
+                    (rayDir.Y == 0) ? float.MaxValue : MathF.Abs(1 / rayDir.Y)
+                );
+
+                Vector2 sideDist;
+                int stepX = rayDir.X < 0 ? -1 : 1;
+                int stepY = rayDir.Y < 0 ? -1 : 1;
+
+                // Initial side distances
+                sideDist.X = rayDir.X < 0 ?
+                    (playerPos.X - mapX) * deltaDist.X :
+                    (mapX + 1.0f - playerPos.X) * deltaDist.X;
+
+                sideDist.Y = rayDir.Y < 0 ?
+                    (playerPos.Y - mapY) * deltaDist.Y :
+                    (mapY + 1.0f - playerPos.Y) * deltaDist.Y;
+
+                // DDA
+                int side = 0;
+                bool hit = false;
+
+                while (!hit)
                 {
-                    sideDist.X += deltaDist.X;
-                    mapX += stepX;
-                    side = 0;
+                    if (sideDist.X < sideDist.Y)
+                    {
+                        sideDist.X += deltaDist.X;
+                        mapX += stepX;
+                        side = 0;
+                    }
+                    else
+                    {
+                        sideDist.Y += deltaDist.Y;
+                        mapY += stepY;
+                        side = 1;
+                    }
+
+                    // Check boundaries
+                    if (mapX < 0 || mapX >= MAP.GetLength(0) || mapY < 0 || mapY >= MAP.GetLength(1)) break;
+                    if (MAP[mapY, mapX] > 0) hit = true;
                 }
-                else
+
+                if (hit)
                 {
-                    sideDist.Y += deltaDist.Y;
-                    mapY += stepY;
-                    side = 1;
+                    // Calculate distance
+                    float perpWallDist = side == 0 ?
+                        (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
+                        (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
+
+                    perpWallDist = MathF.Abs(perpWallDist);
+                    perpWallDist = MathF.Max(perpWallDist, 0.01f);
+
+                    //ZBuffer
+                    zBuffer[x] = perpWallDist;
+                    if (zBuffer[x] > maxZ && zBuffer[x] < 10000f) maxZ = zBuffer[x];
+
+                    // Calculate wall height with maximum cap
+                    int lineHeight = (int)(internalScreenHeight / perpWallDist);
+                    int maxWallHeight = internalScreenHeight;
+                    lineHeight = Math.Min(lineHeight, maxWallHeight);
+
+                    int drawStart = Math.Clamp(-lineHeight / 2 + internalScreenHeight / 2, 0, internalScreenHeight);
+                    int drawEnd = Math.Clamp(lineHeight / 2 + internalScreenHeight / 2, 0, internalScreenHeight);
+
+                    // Calculate texture coordinates with offset based on clamping
+                    float texOffsetY = 0f;
+                    if (lineHeight >= maxWallHeight)
+                    {
+                        // When capped, calculate vertical offset to show center of texture
+                        float overflow = (internalScreenHeight / perpWallDist) - maxWallHeight;
+                        texOffsetY = (overflow / 2) / (internalScreenHeight / perpWallDist);
+                    }
+
+                    float sampleHeight = 1f - texOffsetY * 2; // Portion of texture to show
+                    int texYStart = (int)(TEXTURE_SIZE * texOffsetY);
+                    int texYEnd = (int)(TEXTURE_SIZE * (1 - texOffsetY));
+
+                    // Calculate texture x-coordinate
+                    float wallX = side == 0 ?
+                        playerPos.Y + perpWallDist * rayDir.Y :
+                        playerPos.X + perpWallDist * rayDir.X;
+                    wallX -= MathF.Floor(wallX);
+
+                    int texX = (int)(wallX * TEXTURE_SIZE);
+                    if ((side == 0 && rayDir.X > 0) || (side == 1 && rayDir.Y < 0))
+                        texX = TEXTURE_SIZE - texX - 1;
+
+                    // Shading factors
+                    float shade = Math.Clamp(1.0f - perpWallDist * 0.03f, 0.3f, 1.0f);
+                    float darken = side == 1 ? 0.6f : 1.0f;
+                    Color tint = new Color(
+                        (byte)(255 * shade * darken),
+                        (byte)(255 * shade * darken),
+                        (byte)(255 * shade * darken),
+                        (byte)255
+                    );
+
+                    // Draw vertical strip using texture
+                    Rectangle srcRect = new Rectangle(
+                        texX,
+                        texYStart,
+                        1,
+                        Math.Max(1, texYEnd - texYStart) // Ensure at least 1 pixel height
+                    );
+
+                    Rectangle destRect = new Rectangle(
+                        x,
+                        drawStart,
+                        1,
+                        drawEnd - drawStart
+                    );
+
+                    Raylib.DrawTexturePro(
+                        MAP[mapY, mapX] == 1 ? textures["wall"] : textures["door"],
+                        srcRect,
+                        destRect,
+                        Vector2.Zero,
+                        0f,
+                        tint
+                    );
                 }
-
-                // Check boundaries
-                if (mapX < 0 || mapX >= MAP.GetLength(0) || mapY < 0 || mapY >= MAP.GetLength(1)) break;
-                if (MAP[mapY, mapX] > 0) hit = true;
-            }
-
-            if (hit)
-            {
-                // Calculate distance
-                float perpWallDist = side == 0 ?
-                    (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
-                    (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
-
-                perpWallDist = MathF.Abs(perpWallDist);
-                perpWallDist = MathF.Max(perpWallDist, 0.01f);
-
-                //ZBuffer
-                zBuffer[x] = perpWallDist;
-                if (zBuffer[x] > maxZ && zBuffer[x] < 10000f) maxZ = zBuffer[x];
-
-                // Calculate wall height with maximum cap
-                int lineHeight = (int)(internalScreenHeight / perpWallDist);
-                int maxWallHeight = internalScreenHeight;
-                lineHeight = Math.Min(lineHeight, maxWallHeight);
-
-                int drawStart = Math.Clamp(-lineHeight / 2 + internalScreenHeight / 2, 0, internalScreenHeight);
-                int drawEnd = Math.Clamp(lineHeight / 2 + internalScreenHeight / 2, 0, internalScreenHeight);
-
-                // Calculate texture coordinates with offset based on clamping
-                float texOffsetY = 0f;
-                if (lineHeight >= maxWallHeight)
-                {
-                    // When capped, calculate vertical offset to show center of texture
-                    float overflow = (internalScreenHeight / perpWallDist) - maxWallHeight;
-                    texOffsetY = (overflow / 2) / (internalScreenHeight / perpWallDist);
-                }
-
-                float sampleHeight = 1f - texOffsetY * 2; // Portion of texture to show
-                int texYStart = (int)(TEXTURE_SIZE * texOffsetY);
-                int texYEnd = (int)(TEXTURE_SIZE * (1 - texOffsetY));
-
-                // Calculate texture x-coordinate
-                float wallX = side == 0 ?
-                    playerPos.Y + perpWallDist * rayDir.Y :
-                    playerPos.X + perpWallDist * rayDir.X;
-                wallX -= MathF.Floor(wallX);
-
-                int texX = (int)(wallX * TEXTURE_SIZE);
-                if ((side == 0 && rayDir.X > 0) || (side == 1 && rayDir.Y < 0))
-                    texX = TEXTURE_SIZE - texX - 1;
-
-                // Shading factors
-                float shade = Math.Clamp(1.0f - perpWallDist * 0.03f, 0.3f, 1.0f);
-                float darken = side == 1 ? 0.6f : 1.0f;
-                Color tint = new Color(
-                    (byte)(255 * shade * darken),
-                    (byte)(255 * shade * darken),
-                    (byte)(255 * shade * darken),
-                    (byte)255
-                );
-
-                // Draw vertical strip using texture
-                Rectangle srcRect = new Rectangle(
-                    texX,
-                    texYStart,
-                    1,
-                    Math.Max(1, texYEnd - texYStart) // Ensure at least 1 pixel height
-                );
-
-                Rectangle destRect = new Rectangle(
-                    x,
-                    drawStart,
-                    1,
-                    drawEnd - drawStart
-                );
-
-                Raylib.DrawTexturePro(
-                    MAP[mapY, mapX] == 1 ? textures["wall"] : textures["door"],
-                    srcRect,
-                    destRect,
-                    Vector2.Zero,
-                    0f,
-                    tint
-                );
             }
         }
 
-        rayTimer.Stop();
-        rayLoopTimeMs = rayTimer.Elapsed.TotalMilliseconds;
+        using (PerformanceMonitor.Measure(t => PerformanceMonitor.depthTextureTime = t))
+        {
+            // Update depth texture with z-buffer
+            UpdateDepthTexture();
+        }
 
-        // Update depth texture with z-buffer
-        Stopwatch depthTimer = Stopwatch.StartNew();
-        UpdateDepthTexture();
-        depthTimer.Stop();
-        depthTextureTimeMs = depthTimer.Elapsed.TotalMilliseconds;
+        using (PerformanceMonitor.Measure(t => PerformanceMonitor.SpriteDrawTime = t))
+        {
+            DrawEntitys();
+        }
 
-        Stopwatch spriteTimer = Stopwatch.StartNew();
-        DrawEntitys();
-        spriteTimer.Stop();
-        spriteDrawTimeMs = spriteTimer.Elapsed.TotalMilliseconds;
-
-        Stopwatch zBufferTimer = Stopwatch.StartNew();
-        DrawZBuffer();
-        zBufferTimer.Stop();
-        zBufferDrawTimeMs = zBufferTimer.Elapsed.TotalMilliseconds;
+        using (PerformanceMonitor.Measure(t => PerformanceMonitor.zBufferDrawTime = t))
+        {
+            DrawZBuffer();
+        }
 
         Raylib.EndTextureMode();
     }
@@ -761,6 +783,7 @@ class Raycaster
         LoadShaders();
         LoadMap();
         LoadEnemys();
+        CreatePlayer();
 
         while (!Raylib.WindowShouldClose())
         {
@@ -873,7 +896,7 @@ class Raycaster
 
         foreach (Entity entity in entities)
         {
-            entity.GetComponent<RoachAI>().targetPosition = playerPos;
+            //entity.GetComponent<RoachAI>().targetPosition = playerPos;
 
             entity.Update();
 
