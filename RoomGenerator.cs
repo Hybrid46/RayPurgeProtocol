@@ -298,9 +298,9 @@ public class RoomGenerator
             {
                 if (room == roomNeighbour) continue;
 
-                foreach (Vector2IntR wall in room.walls)
+                foreach (Vector2IntR door in room.doors)
                 {
-                    if (roomNeighbour.walls.Contains(wall))
+                    if (roomNeighbour.doors.Contains(door))
                     {
                         room.neighbourRooms.Add(roomNeighbour);
                         break;
@@ -538,5 +538,51 @@ public class RoomGenerator
             }
             Console.WriteLine();
         }
+    }
+
+    public void PrintRoom(Room room) => PrintRoom(rooms.IndexOf(room));
+
+    public void PrintRoom(int index)
+    {
+        Room room = rooms[index];
+
+        for (int y = 0; y < gridHeight; y++)
+        {
+            for (int x = 0; x < gridWidth; x++)
+            {
+                Vector2IntR coord = new Vector2IntR(x, y);
+                if (room.coords.Contains(coord)) Console.Write("O");
+                else if (room.walls.Contains(coord)) Console.Write("W");
+                else if (room.edgeCoords.Contains(coord)) Console.Write("E");
+                else if (room.doors.Contains(coord)) Console.Write("D");
+                else Console.Write("_");
+            }
+            Console.WriteLine();
+        }
+
+        foreach (Room neighbour in room.neighbourRooms)
+        {
+            Console.WriteLine($"Room {index} has neighbour: {rooms.IndexOf(neighbour)} in: {neighbour.startCoord}");
+        }
+
+        //foreach (Vector2IntR coord in room.coords)
+        //{
+        //    Console.WriteLine($"Room {index} contains coord: {coord}");
+        //}
+
+        //foreach (Vector2IntR wall in room.walls)
+        //{
+        //    Console.WriteLine($"Room {index} has wall at: {wall}");
+        //}
+
+        //foreach (Vector2IntR door in room.doors)
+        //{
+        //    Console.WriteLine($"Room {index} has door at: {door}");
+        //}
+
+        //foreach (Vector2IntR edge in room.edgeCoords)
+        //{
+        //    Console.WriteLine($"Room {index} has edge at: {edge}");
+        //}
     }
 }
