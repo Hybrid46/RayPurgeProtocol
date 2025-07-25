@@ -1,5 +1,7 @@
 ﻿using static RoomGenerator;
 using System.Numerics;
+using System.IO;
+using System;
 
 public class HPAStar
 {
@@ -17,17 +19,17 @@ public class HPAStar
             Cluster cluster = new Cluster(room);
             clusters.Add(room, cluster);
 
-            foreach (Vector2IntR doorPos in room.doors)
+            foreach (Door door in room.doors)
             {
-                if (!doorNodes.ContainsKey(doorPos))
+                if (!doorNodes.ContainsKey(door.position))
                 {
-                    DoorNode node = new DoorNode(doorPos);
-                    doorNodes.Add(doorPos, node);
+                    DoorNode node = new DoorNode(door.position);
+                    doorNodes.Add(door.position, node);
                     node.Clusters.Add(cluster);
                 }
                 else
                 {
-                    doorNodes[doorPos].Clusters.Add(cluster);
+                    doorNodes[door.position].Clusters.Add(cluster);
                 }
             }
         }
@@ -36,8 +38,8 @@ public class HPAStar
         foreach (Cluster cluster in clusters.Values)
         {
             cluster.DoorNodes = cluster.Room.doors
-                .Select(doorPos => doorNodes[doorPos])
-                .ToList();
+                          .Select(door => doorNodes[door.position])
+                          .ToList();
 
             // Connect all doors within the same cluster
             for (int i = 0; i < cluster.DoorNodes.Count; i++)
@@ -65,18 +67,24 @@ public class HPAStar
         PositionNode startNode = new PositionNode(start);
         PositionNode goalNode = new PositionNode(goal);
 
-        // Connect start to its cluster doors
+        // Connect start to doors WITH PATH VALIDATION
         foreach (DoorNode door in clusters[startRoom].DoorNodes)
         {
-            float cost = Vector2.Distance(start, door.Position);
-            startNode.AddNeighbor(door, cost);
+            if (IsPathClear(start, door.Position))
+            {
+                float cost = Vector2.Distance(start, door.Position);
+                startNode.AddNeighbor(door, cost);
+            }
         }
 
-        // Connect goal to its cluster doors
+        // Connect goal to doors WITH PATH VALIDATION
         foreach (DoorNode door in clusters[goalRoom].DoorNodes)
         {
-            float cost = Vector2.Distance(goal, door.Position);
-            door.AddNeighbor(goalNode, cost);
+            if (IsPathClear(goal, door.Position))
+            {
+                float cost = Vector2.Distance(goal, door.Position);
+                door.AddNeighbor(goalNode, cost);
+            }
         }
 
         // A* search
@@ -114,6 +122,25 @@ public class HPAStar
         }
 
         return new List<Vector2>(); // No path found
+    }
+
+    private bool IsPathClear(Vector2 start, Vector2 end)
+    {
+        Vector2 dir = Vector2.Normalize(end - start);
+        float distance = Vector2.Distance(start, end);
+        int steps = (int)(distance * 2); // Check at half-cell intervals
+
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = i / (float)steps;
+            Vector2 point = Vector2.Lerp(start, end, t);
+            Vector2IntR gridPos = new Vector2IntR((int)point.X, (int)point.Y);
+
+            // Ignore doors (value 2)
+            if (roomGenerator.intgrid[gridPos.x, gridPos.y] == 1) // Wall
+                return false;
+        }
+        return true;
     }
 
     public Room FindRoomContaining(Vector2 position)

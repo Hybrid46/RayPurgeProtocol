@@ -743,21 +743,25 @@ class Raycaster
         return hitEnemy;
     }
 
-    private static void ToggleDoor()
+    private static void Interact()
     {
         RayHit hit = CastDDA(playerDir, playerPos, MAP);
 
+        //Toggle Door
         if (MAP[hit.mapX, hit.mapY] == 2 && hit.distance <= 1f)
         {
-            // Toggle door state
             Vector2IntR doorPos = new Vector2IntR(hit.mapX, hit.mapY);
-            roomGenerator.doorStates[doorPos] = !roomGenerator.doorStates[doorPos];
-
-            // Update map for pathfinding
-            MAP[doorPos.x, doorPos.y] = roomGenerator.doorStates[doorPos] ? 0 : 2; // 0 = walkable
-
-            Console.WriteLine($"Toggled door at ({doorPos.x},{doorPos.y}) - Now {(roomGenerator.doorStates[doorPos] ? "OPEN" : "CLOSED")}");
-            return;
+            // Directly access door from generator's dictionary
+            if (roomGenerator.doorPositionMap.TryGetValue(doorPos, out Door door))
+            {
+                door.isOpen = !door.isOpen;
+                roomGenerator.intgrid[doorPos.x, doorPos.y] = door.isOpen ? 0 : 2;
+                Console.WriteLine($"Toggled door at ({doorPos.x},{doorPos.y}) - Now {(door.isOpen ? "OPEN" : "CLOSED")}");
+            }
+            else
+            {
+                Console.WriteLine($"No door found at {doorPos}");
+            }
         }
     }
 
@@ -978,7 +982,7 @@ class Raycaster
         //Interact (closest door, other interactables)
         if (Raylib.IsKeyDown(KeyboardKey.F))
         {
-            ToggleDoor();
+            Interact();
             //other interactions
         }
     }
