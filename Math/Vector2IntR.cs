@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 
 public struct Vector2IntR : IEquatable<Vector2IntR>, IFormattable
@@ -64,6 +65,12 @@ public struct Vector2IntR : IEquatable<Vector2IntR>, IFormattable
     {
         m_X = x;
         m_Y = y;
+    }
+
+    public Vector2IntR(Vector2 v)
+    {
+        m_X = (int)v.X;
+        m_Y = (int)v.Y;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -2,6 +2,7 @@
 using System;
 using Random = RandomR;
 using Color = Raylib_cs.Color;
+using System.Numerics;
 
 public class RoomGenerator
 {
@@ -282,12 +283,9 @@ public class RoomGenerator
     private void MapCoordsToRooms()
     {
         coordToRoomMap = new Dictionary<Vector2IntR, Room>(roomSet.Count);
-        int roomAreas = 0;
 
         foreach (Room room in rooms)
         {
-            roomAreas += room.coords.Count;
-
             foreach (Vector2IntR coord in room.coords)
             {
                 coordToRoomMap[coord] = room;
@@ -500,6 +498,20 @@ public class RoomGenerator
         }
 
         return null;
+    }
+
+    public Room FindRoomContaining(Vector2 position)
+    {
+        Vector2IntR gridPos = new Vector2IntR(position);
+
+        // First check if we're directly on a door
+        if (doorPositionMap.ContainsKey(gridPos))
+        {
+            // Return one of the connected rooms arbitrarily
+            return doorPositionMap[gridPos].roomA;
+        }
+
+        return CoordinateToRoom(gridPos);
     }
 
     public Room CoordinateToRoom(Vector2IntR coord)

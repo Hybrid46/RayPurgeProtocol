@@ -58,33 +58,27 @@ public class HPAStar
 
     public List<Vector2> FindPath(Vector2 start, Vector2 goal)
     {
-        Room startRoom = FindRoomContaining(start);
-        Room goalRoom = FindRoomContaining(goal);
+        Room startRoom = roomGenerator.FindRoomContaining(start);
+        Room goalRoom = roomGenerator.FindRoomContaining(goal);
 
         if (startRoom == null || goalRoom == null) return new List<Vector2>();
 
-        // Create temporary nodes using PositionNode
+        // Create temporary nodes
         PositionNode startNode = new PositionNode(start);
         PositionNode goalNode = new PositionNode(goal);
 
-        // Connect start to doors WITH PATH VALIDATION
+        // Always connect start to doors in its room (no raycast needed)
         foreach (DoorNode door in clusters[startRoom].DoorNodes)
         {
-            if (IsPathClear(start, door.Position))
-            {
-                float cost = Vector2.Distance(start, door.Position);
-                startNode.AddNeighbor(door, cost);
-            }
+            float cost = Vector2.Distance(start, door.Position);
+            startNode.AddNeighbor(door, cost);
         }
 
-        // Connect goal to doors WITH PATH VALIDATION
+        // Always connect goal to doors in its room (no raycast needed)
         foreach (DoorNode door in clusters[goalRoom].DoorNodes)
         {
-            if (IsPathClear(goal, door.Position))
-            {
-                float cost = Vector2.Distance(goal, door.Position);
-                door.AddNeighbor(goalNode, cost);
-            }
+            float cost = Vector2.Distance(goal, door.Position);
+            door.AddNeighbor(goalNode, cost);
         }
 
         // A* search
@@ -122,32 +116,6 @@ public class HPAStar
         }
 
         return new List<Vector2>(); // No path found
-    }
-
-    private bool IsPathClear(Vector2 start, Vector2 end)
-    {
-        Vector2 dir = Vector2.Normalize(end - start);
-        float distance = Vector2.Distance(start, end);
-        int steps = (int)(distance * 2); // Check at half-cell intervals
-
-        for (int i = 0; i <= steps; i++)
-        {
-            float t = i / (float)steps;
-            Vector2 point = Vector2.Lerp(start, end, t);
-            Vector2IntR gridPos = new Vector2IntR((int)point.X, (int)point.Y);
-
-            // Ignore doors (value 2)
-            if (roomGenerator.intgrid[gridPos.x, gridPos.y] == 1) // Wall
-                return false;
-        }
-        return true;
-    }
-
-    public Room FindRoomContaining(Vector2 position)
-    {
-        Vector2IntR gridPos = new Vector2IntR((int)position.X, (int)position.Y);
-
-        return roomGenerator.CoordinateToRoom(gridPos);
     }
 
     private List<Vector2> ReconstructPath(Dictionary<PathNode, PathNode> cameFrom, PathNode current)

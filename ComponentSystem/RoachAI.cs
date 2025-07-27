@@ -3,10 +3,11 @@ using System.Numerics;
 
 public class RoachAI : Component, IUpdatable
 {
-    private HPAStar _pathfinder;
-    private List<Vector2> _currentPath = new List<Vector2>();
-    private int _currentIndex = 0;
-    private float _idleTimer = 0;
+    private HPAStar pathfinder;
+    private RoomGenerator roomGenerator;
+    private List<Vector2> currentPath = new List<Vector2>();
+    private int currentIndex = 0;
+    private float idleTimer = 0;
     private const float IdleTime = 1.0f;
     private float moveSpeed = 2.25f;
 
@@ -16,19 +17,20 @@ public class RoachAI : Component, IUpdatable
         Idle
     }
 
-    private State _currentState = State.Moving;
+    private State currentState = State.Moving;
 
-    public void Initialize(HPAStar pathfinder)
+    public void Initialize(HPAStar pathfinder, RoomGenerator roomGenerator)
     {
-        _pathfinder = pathfinder;
+        this.roomGenerator = roomGenerator;
+        this.pathfinder = pathfinder;
         GetNewRandomTarget();
     }
 
     public void Update()
     {
-        if (_pathfinder == null) return;
+        if (pathfinder == null) return;
 
-        switch (_currentState)
+        switch (currentState)
         {
             case State.Moving:
                 UpdateMovement();
@@ -42,59 +44,58 @@ public class RoachAI : Component, IUpdatable
 
     private void UpdateMovement()
     {
-        if (_currentPath.Count == 0)
+        if (currentPath.Count == 0)
         {
             GetNewRandomTarget();
             return;
         }
 
-        Vector2 targetPos = _currentPath[_currentIndex];
+        Vector2 targetPos = currentPath[currentIndex];
         Vector2 direction = Vector2.Normalize(targetPos - Entity.transform.Position);
 
         Entity.transform.Position += direction * moveSpeed * Settings.fixedDeltaTime;
 
         if (Vector2.DistanceSquared(Entity.transform.Position, targetPos) < 0.1f)
         {
-            _currentIndex++;
-            if (_currentIndex >= _currentPath.Count)
+            currentIndex++;
+            if (currentIndex >= currentPath.Count)
             {
                 // Reached final target - go idle
-                _currentState = State.Idle;
-                _idleTimer = 0;
+                currentState = State.Idle;
+                idleTimer = 0;
             }
         }
     }
 
     private void UpdateIdle()
     {
-        _idleTimer += Settings.fixedDeltaTime;
-        if (_idleTimer >= IdleTime)
+        idleTimer += Settings.fixedDeltaTime;
+        if (idleTimer >= IdleTime)
         {
             // Idle time finished - get new target
             GetNewRandomTarget();
-            _currentState = State.Moving;
+            currentState = State.Moving;
         }
     }
 
     private void GetNewRandomTarget()
     {
         Vector2 target = GetRandomPositionInNeighborRoom();
-        _currentPath = _pathfinder.FindPath(Entity.transform.Position, target);
-        _currentIndex = 0;
+        currentPath = pathfinder.FindPath(Entity.transform.Position, target);
+        currentIndex = 0;
 
         // If no path found, try again next frame
-        if (_currentPath.Count == 0)
+        if (currentPath.Count == 0)
         {
-            _currentState = State.Idle;
-            _idleTimer = IdleTime - 0.1f; // Try again very soon
+            currentState = State.Idle;
+            idleTimer = IdleTime - 0.1f; // Try again very soon
         }
     }
 
     private Vector2 GetRandomPositionInNeighborRoom()
     {
         Room currentRoom = GetCurrentRoom();
-        if (currentRoom == null)
-            return Entity.transform.Position; // Fallback to current position
+        if (currentRoom == null) return Entity.transform.Position; // Fallback to current position
 
         // 70% chance to stay in current room, 30% to move to neighbor room
         Room targetRoom = currentRoom;
@@ -119,6 +120,6 @@ public class RoachAI : Component, IUpdatable
             (int)Entity.transform.Position.X,
             (int)Entity.transform.Position.Y
         );
-        return _pathfinder.FindRoomContaining(Entity.transform.Position);
+        return roomGenerator.FindRoomContaining(Entity.transform.Position);
     }
 }

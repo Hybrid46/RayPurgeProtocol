@@ -171,7 +171,7 @@ class Raycaster
             roach.AddComponent(new HealthComponent(difficulty + 1));
             roach.AddComponent(new RaySpriteRenderer { Texture = sprite });
             roach.AddComponent(new RoachAI());
-            roach.GetComponent<RoachAI>().Initialize(pathfindingSystem);
+            roach.GetComponent<RoachAI>().Initialize(pathfindingSystem, roomGenerator);
 
             return roach;
         }
@@ -751,7 +751,7 @@ class Raycaster
         if (MAP[hit.mapX, hit.mapY] == 2 && hit.distance <= 1f)
         {
             Vector2IntR doorPos = new Vector2IntR(hit.mapX, hit.mapY);
-            // Directly access door from generator's dictionary
+
             if (roomGenerator.doorPositionMap.TryGetValue(doorPos, out Door door))
             {
                 door.isOpen = !door.isOpen;
