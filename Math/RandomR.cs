@@ -1,5 +1,6 @@
 ﻿using Raylib_cs;
 using System;
+using System.Numerics;
 
 public static class RandomR
 {
@@ -27,13 +28,13 @@ public static class RandomR
     /// <summary>
     /// Returns a random point inside or on a circle with radius 1
     /// </summary>
-    public static Vector2R insideUnitCircle
+    public static Vector2 insideUnitCircle
     {
         get
         {
             float angle = Range(0f, MathF.PI * 2);
             float radius = MathF.Sqrt(Range(0f, 1f));
-            return new Vector2R(radius * MathF.Cos(angle), radius * MathF.Sin(angle));
+            return new Vector2(radius * MathF.Cos(angle), radius * MathF.Sin(angle));
         }
     }
 

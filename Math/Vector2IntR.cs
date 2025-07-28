@@ -115,20 +115,20 @@ public struct Vector2IntR : IEquatable<Vector2IntR>, IFormattable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Vector2IntR FloorToInt(Vector2R v) =>
-        new Vector2IntR((int)Math.Floor(v.x), (int)Math.Floor(v.y));
+    public static Vector2IntR FloorToInt(Vector2 v) =>
+        new Vector2IntR((int)Math.Floor(v.X), (int)Math.Floor(v.Y));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Vector2IntR CeilToInt(Vector2R v) =>
-        new Vector2IntR((int)Math.Ceiling(v.x), (int)Math.Ceiling(v.y));
+    public static Vector2IntR CeilToInt(Vector2 v) =>
+        new Vector2IntR((int)Math.Ceiling(v.X), (int)Math.Ceiling(v.Y));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Vector2IntR RoundToInt(Vector2R v) =>
-        new Vector2IntR((int)Math.Round(v.x), (int)Math.Round(v.y));
+    public static Vector2IntR RoundToInt(Vector2 v) =>
+        new Vector2IntR((int)Math.Round(v.X), (int)Math.Round(v.Y));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static implicit operator Vector2R(Vector2IntR v) =>
-        new Vector2R(v.x, v.y);
+    public static implicit operator Vector2(Vector2IntR v) =>
+        new Vector2(v.x, v.y);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector2IntR operator -(Vector2IntR v) => new Vector2IntR(-v.x, -v.y);
