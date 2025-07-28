@@ -1,8 +1,6 @@
-﻿using System.Collections.Generic;
-using System;
+﻿using System.Numerics;
 using Random = RandomR;
 using Color = Raylib_cs.Color;
-using System.Numerics;
 
 public class RoomGenerator
 {
@@ -290,6 +288,16 @@ public class RoomGenerator
             {
                 coordToRoomMap[coord] = room;
             }
+
+            foreach (Vector2IntR coord in room.walls)
+            {
+                coordToRoomMap[coord] = room;
+            }
+
+            foreach (Door door in room.doors)
+            {
+                coordToRoomMap[door.position] = room;
+            }
         }
     }
 
@@ -514,6 +522,7 @@ public class RoomGenerator
         return CoordinateToRoom(gridPos);
     }
 
+    public Room CoordinateToRoom(Vector2 position) => CoordinateToRoom(new Vector2IntR(position));
     public Room CoordinateToRoom(Vector2IntR coord)
     {
         coordToRoomMap.TryGetValue(coord, out Room room);

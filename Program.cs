@@ -430,14 +430,14 @@ class Raycaster
         {
             for (int x = 0; x < MAP_SIZE; x++)
             {
-                if (MAP[y, x] > 0)
+                if (MAP[x, y] > 0)
                 {
                     Raylib.DrawRectangle(
                         (int)MAP_POS.X + x * MAP_SCALE,
                         (int)MAP_POS.Y + y * MAP_SCALE,
                         MAP_SCALE,
                         MAP_SCALE,
-                        MAP[y, x] == 1 ? MapWallColor : MapDoorColor
+                        MAP[x, y] == 1 ? MapWallColor : MapDoorColor
                     );
                 }
             }
