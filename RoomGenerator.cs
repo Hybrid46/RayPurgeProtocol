@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using System;
+﻿using System.Numerics;
 using Random = RandomR;
 using Color = Raylib_cs.Color;
 
@@ -24,12 +23,11 @@ public class RoomGenerator
     private HashSet<Vector2IntR> roomSet = new HashSet<Vector2IntR>();
     private HashSet<Vector2IntR> doorSet = new HashSet<Vector2IntR>();
 
-    public Dictionary<Vector2IntR, bool> doorStates = new Dictionary<Vector2IntR, bool>();
-
     private HashSet<Vector2IntR> removedDoubleWalls;
 
     //TODO store room number on grid as int
     private Dictionary<Vector2IntR, Room> coordToRoomMap;
+    public Dictionary<Vector2IntR, Door> doorPositionMap = new Dictionary<Vector2IntR, Door>();
 
     public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoomSizeX, int minRoomSizeY, int maxRoomSizeY, float extraDoorChance)
     {
@@ -47,7 +45,7 @@ public class RoomGenerator
         public HashSet<Vector2IntR> coords;
         public HashSet<Vector2IntR> edgeCoords;
         public HashSet<Vector2IntR> walls;
-        public HashSet<Vector2IntR> doors;
+        public HashSet<Door> doors;
         public Vector2IntR startCoord { get; private set; }
         public Color color { get; private set; }
         public HashSet<Room> neighbourRooms;
@@ -55,7 +53,7 @@ public class RoomGenerator
         public Room(Vector2IntR startPosition)
         {
             walls = new HashSet<Vector2IntR>();
-            doors = new HashSet<Vector2IntR>();
+            doors = new HashSet<Door>();
             coords = new HashSet<Vector2IntR> { startPosition };
             neighbourRooms = new HashSet<Room>();
             this.startCoord = startPosition;
@@ -74,14 +72,25 @@ public class RoomGenerator
 
         private bool IsEdge(RoomGenerator roomGenerator, Vector2IntR coord)
         {
-            foreach (Vector2IntR offset in roomGenerator.GetOffsetDirections()) //TODO should be cardinal?
+            foreach (Vector2IntR offset in roomGenerator.GetOffsetDirections())
             {
                 Vector2IntR roomCoord = coord + offset;
-                if (!roomGenerator.IsWithinGrid(roomCoord)) return true;
-                if (!coords.Contains(roomCoord)) return true;
+                if (!roomGenerator.IsWithinGrid(roomCoord) || !coords.Contains(roomCoord)) return true;
+            }
+            return false;
+        }
+
+        public Door CoordinateToDoor(Vector2IntR coord)
+        {
+            foreach (Door door in doors)
+            {
+                if (door.position == coord)
+                {
+                    return door;
+                }
             }
 
-            return false;
+            return null;
         }
     }
 
@@ -115,12 +124,7 @@ public class RoomGenerator
         //Doors
         GenerateDoors();
 
-        // Initialize all doors as closed
-        doorStates = new Dictionary<Vector2IntR, bool>(doorSet.Count);
-        foreach (Vector2IntR doorPos in doorSet) doorStates.Add(doorPos, false);
-
         MapCoordsToRooms();
-        MapRoomNeighbours();
     }
 
     private void InitializeGrid()
@@ -277,35 +281,22 @@ public class RoomGenerator
     private void MapCoordsToRooms()
     {
         coordToRoomMap = new Dictionary<Vector2IntR, Room>(roomSet.Count);
-        int roomAreas = 0;
 
         foreach (Room room in rooms)
         {
-            roomAreas += room.coords.Count;
-
             foreach (Vector2IntR coord in room.coords)
             {
                 coordToRoomMap[coord] = room;
             }
-        }
-    }
 
-    private void MapRoomNeighbours()
-    {
-        foreach (Room room in rooms)
-        {
-            foreach (Room roomNeighbour in rooms)
+            foreach (Vector2IntR coord in room.walls)
             {
-                if (room == roomNeighbour) continue;
+                coordToRoomMap[coord] = room;
+            }
 
-                foreach (Vector2IntR door in room.doors)
-                {
-                    if (roomNeighbour.doors.Contains(door))
-                    {
-                        room.neighbourRooms.Add(roomNeighbour);
-                        break;
-                    }
-                }
+            foreach (Door door in room.doors)
+            {
+                coordToRoomMap[door.position] = room;
             }
         }
     }
@@ -318,10 +309,9 @@ public class RoomGenerator
         UnionFind<Room> unionFind = new UnionFind<Room>(rooms);
         List<Door> selectedDoors = new List<Door>();
 
-        // Minimum spanning tree for connectivity
-        for (int i = 0; i < doors.Count; i++)
+        // Build minimum spanning tree to ensure connectivity
+        foreach (Door door in doors)
         {
-            Door door = doors[i];
             if (!unionFind.AreConnected(door.roomA, door.roomB))
             {
                 unionFind.Union(door.roomA, door.roomB);
@@ -330,38 +320,39 @@ public class RoomGenerator
             }
         }
 
-        // Random extra connections
-        int remaining = doors.Count - selectedDoors.Count;
-        int extraDoors = Random.Range(0f, 1f) < extraDoorChance ? 1 : 0; //TODO doors shouldn't be next to each other
-        for (int i = 0; i < extraDoors; i++)
+        // Potential extra random connections
+        if (Random.Range(0f, 1f) < extraDoorChance)
         {
-            int randomIndex = Random.Range(selectedDoors.Count, doors.Count);
-            selectedDoors.Add(doors[randomIndex]);
+            // pick one additional door
+            Door extra = doors[Random.Range(selectedDoors.Count, doors.Count)];
+            selectedDoors.Add(extra);
         }
 
-        // Create door openings
-        for (int i = 0; i < selectedDoors.Count; i++)
+        // Carve out doors and record them
+        foreach (Door d in selectedDoors)
         {
-            Vector2IntR doorPos = selectedDoors[i].position;
+            Vector2IntR doorPos = d.position;
             doorSet.Add(doorPos);
             wallSet.Remove(doorPos);
             intgrid[doorPos.x, doorPos.y] = 2;
 
-            for (int r = 0; r < rooms.Count; r++)
-            {
-                Room room = rooms[r];
-                if (room.walls.Contains(doorPos))
-                {
-                    room.walls.Remove(doorPos);
-                    room.doors.Add(doorPos);
-                }
-            }
+            // Remove wall and add door to each room
+            d.roomA.walls.Remove(doorPos);
+            d.roomB.walls.Remove(doorPos);
+            Door newDoor = new Door(doorPos, d.roomA, d.roomB, false);
+            doorPositionMap.Add(doorPos, newDoor);
+            d.roomA.doors.Add(newDoor);
+            d.roomB.doors.Add(newDoor);
+
+            // Link neighbours directly
+            d.roomA.neighbourRooms.Add(d.roomB);
+            d.roomB.neighbourRooms.Add(d.roomA);
         }
     }
 
     private List<Door> CollectDoors()
     {
-        List<Door> doors = new List<Door>();
+        HashSet<Door> doors = new HashSet<Door>();
         HashSet<Vector2IntR> processedWalls = new HashSet<Vector2IntR>();
 
         foreach (Vector2IntR wall in wallSet)
@@ -386,14 +377,14 @@ public class RoomGenerator
                 {
                     for (int j = i + 1; j < adjacentRooms.Count; j++)
                     {
-                        doors.Add(new Door(wall, adjacentRooms[i], adjacentRooms[j]));
+                        doors.Add(new Door(wall, adjacentRooms[i], adjacentRooms[j], false));
                     }
                 }
 
                 processedWalls.Add(wall);
             }
         }
-        return doors;
+        return new List<Door>(doors);
     }
 
     // Union-Find implementation
@@ -502,6 +493,36 @@ public class RoomGenerator
 
     public bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
 
+    public Door CoordinateToDoor(Vector2IntR coord)
+    {
+        Room doorRoom = CoordinateToRoom(coord);
+
+        foreach (Door door in doorRoom.doors)
+        {
+            if (door.position == coord)
+            {
+                return door;
+            }
+        }
+
+        return null;
+    }
+
+    public Room FindRoomContaining(Vector2 position)
+    {
+        Vector2IntR gridPos = new Vector2IntR(position);
+
+        // First check if we're directly on a door
+        if (doorPositionMap.ContainsKey(gridPos))
+        {
+            // Return one of the connected rooms arbitrarily
+            return doorPositionMap[gridPos].roomA;
+        }
+
+        return CoordinateToRoom(gridPos);
+    }
+
+    public Room CoordinateToRoom(Vector2 position) => CoordinateToRoom(new Vector2IntR(position));
     public Room CoordinateToRoom(Vector2IntR coord)
     {
         coordToRoomMap.TryGetValue(coord, out Room room);
@@ -550,11 +571,22 @@ public class RoomGenerator
         {
             for (int x = 0; x < gridWidth; x++)
             {
+                bool isDoor = false;
+
+                foreach (Door door in room.doors)
+                {
+                    if (door.position.x == x && door.position.y == y)
+                    {
+                        isDoor = true;
+                        break;
+                    }
+                }
+
                 Vector2IntR coord = new Vector2IntR(x, y);
                 if (room.coords.Contains(coord)) Console.Write("O");
                 else if (room.walls.Contains(coord)) Console.Write("W");
                 else if (room.edgeCoords.Contains(coord)) Console.Write("E");
-                else if (room.doors.Contains(coord)) Console.Write("D");
+                else if (isDoor) Console.Write("D");
                 else Console.Write("_");
             }
             Console.WriteLine();
