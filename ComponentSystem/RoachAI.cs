@@ -116,10 +116,8 @@ public class RoachAI : Component, IUpdatable
 
     private Room GetCurrentRoom()
     {
-        Vector2IntR gridPos = new Vector2IntR(
-            (int)Entity.transform.Position.X,
-            (int)Entity.transform.Position.Y
-        );
-        return roomGenerator.FindRoomContaining(Entity.transform.Position);
+        Vector2IntR gridPos = new Vector2IntR(Entity.transform.Position);
+
+        return roomGenerator.FindRoomContaining(gridPos);
     }
 }

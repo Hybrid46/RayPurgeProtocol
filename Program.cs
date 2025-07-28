@@ -4,7 +4,6 @@ using Raylib_cs;
 using Color = Raylib_cs.Color;
 using static Settings;
 using static RoomGenerator;
-using System.Security.Cryptography;
 
 class Raycaster
 {
@@ -153,7 +152,7 @@ class Raycaster
                         _ => textures["roach_red"]
                     };
 
-                    if (MAP[pos.y, pos.x] != 0) continue; // Only spawn on empty tiles
+                    if (MAP[pos.x, pos.y] != 0) continue; // Only spawn on empty tiles
 
                     Vector2 startPosition = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
                     entities.Add(CreateRoach(roachTexture, startPosition, randomRoachTextureIndex));
@@ -269,11 +268,48 @@ class Raycaster
 
     static void DrawEntitys()
     {
-        //TODO Draw only visible entities -> spatial hashing -> map[x,y]
+        //Draw only visible entities in their room neighbour rooms and their neighbour rooms -> 2 room distance
+        // Player room Door -> N1 -> Door -> N2
+        List<Entity> visibleEntities = new List<Entity>(entities.Count);
+        Room playerRoom = roomGenerator.CoordinateToRoom(playerPos);
+
+        foreach (Entity entity in entities)
+        {
+            Room entityRoom = roomGenerator.CoordinateToRoom(entity.transform.Position);
+
+            // Entity is in the same room as player
+            if (playerRoom == entityRoom)
+            {
+                visibleEntities.Add(entity);
+                continue;
+            }
+
+            // Entity is in a neighbour room of the player
+            foreach (Room neighbour in playerRoom.neighbourRooms)
+            {
+                if (neighbour == entityRoom)
+                {
+                    visibleEntities.Add(entity);
+                    goto nextEntity; // Skip to next entity
+                }
+
+                // Entity is in a neighbour room of the neighbour -> 2 room distance
+                foreach (Room neighbourOfNeighbour in neighbour.neighbourRooms)
+                {
+                    if (neighbourOfNeighbour == entityRoom)
+                    {
+                        visibleEntities.Add(entity);
+                        goto nextEntity; // Skip to next entity
+                    }
+                }
+            }
+
+            nextEntity:;
+        }
 
         //TODO Sort only visibles
         // Sort Entites by distance (far to near)
-        entities.Sort((a, b) =>
+        visibleEntities.Sort((a, b) =>
         {
             float distA = Vector2.DistanceSquared(a.transform.Position, playerPos);
             float distB = Vector2.DistanceSquared(b.transform.Position, playerPos);
@@ -286,7 +322,7 @@ class Raycaster
         int depthTexLoc = Raylib.GetShaderLocation(spriteShader, "depthTexture");
         Raylib.SetShaderValueTexture(spriteShader, depthTexLoc, depthTexture);
 
-        foreach (Entity entity in entities)
+        foreach (Entity entity in visibleEntities)
         {
             if (Vector2.Distance(playerPos, entity.transform.Position) > drawDistance) continue;
 
@@ -521,7 +557,7 @@ class Raycaster
 
             // Check boundaries
             if (mapX < 0 || mapX >= map.GetLength(0) || mapY < 0 || mapY >= map.GetLength(1)) break;
-            if (map[mapY, mapX] > 0) hit = true;
+            if (map[mapX, mapY] > 0) hit = true;
         }
 
         if (hit)
@@ -534,7 +570,7 @@ class Raycaster
             perpWallDist = MathF.Abs(perpWallDist);
             perpWallDist = MathF.Max(perpWallDist, 0.01f);
 
-            return new RayHit(mapY, mapX, perpWallDist, side);
+            return new RayHit(mapX, mapY, perpWallDist, side);
         }
         else // No hit
         {
@@ -607,7 +643,7 @@ class Raycaster
 
                     // Check boundaries
                     if (mapX < 0 || mapX >= MAP.GetLength(0) || mapY < 0 || mapY >= MAP.GetLength(1)) break;
-                    if (MAP[mapY, mapX] > 0) hit = true;
+                    if (MAP[mapX, mapY] > 0) hit = true;
                 }
 
                 if (hit)
@@ -681,7 +717,7 @@ class Raycaster
                     );
 
                     Raylib.DrawTexturePro(
-                        MAP[mapY, mapX] == 1 ? textures["wall"] : textures["door"],
+                        MAP[mapX, mapY] == 1 ? textures["wall"] : textures["door"],
                         srcRect,
                         destRect,
                         Vector2.Zero,
@@ -943,7 +979,7 @@ class Raycaster
         {
             Vector2 newPos = playerPos + playerDir * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
-                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+                MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
                 playerPos = newPos;
             }
@@ -953,7 +989,7 @@ class Raycaster
         {
             Vector2 newPos = playerPos - playerDir * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
-                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+                MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
                 playerPos = newPos;
             }
@@ -963,7 +999,7 @@ class Raycaster
         {
             Vector2 newPos = playerPos + new Vector2(playerDir.Y, -playerDir.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
-                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+                MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
                 playerPos = newPos;
             }
@@ -973,7 +1009,7 @@ class Raycaster
         {
             Vector2 newPos = playerPos - new Vector2(playerDir.Y, -playerDir.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
-                MAP[(int)newPos.Y, (int)newPos.X] == 0)
+                MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
                 playerPos = newPos;
             }

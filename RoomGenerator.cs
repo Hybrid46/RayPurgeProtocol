@@ -42,11 +42,11 @@ public class RoomGenerator
 
     public class Room
     {
-        public HashSet<Vector2IntR> coords;
-        public HashSet<Vector2IntR> edgeCoords;
-        public HashSet<Vector2IntR> walls;
-        public HashSet<Door> doors;
-        public Vector2IntR startCoord { get; private set; }
+        public HashSet<Vector2IntR> coords;     // Empty space
+        public HashSet<Vector2IntR> edgeCoords; // Edge of the map -> must be in walls too
+        public HashSet<Vector2IntR> walls;      // Walls around the room
+        public HashSet<Door> doors;             // Doors in the room
+        public Vector2IntR startCoord { get; private set; } //Room center, where the room was generated from
         public Color color { get; private set; }
         public HashSet<Room> neighbourRooms;
 
@@ -516,7 +516,7 @@ public class RoomGenerator
         if (doorPositionMap.ContainsKey(gridPos))
         {
             // Return one of the connected rooms arbitrarily
-            return doorPositionMap[gridPos].roomA;
+            return (position.X - MathF.Truncate(position.X) < 0.5f) ? doorPositionMap[gridPos].roomA : doorPositionMap[gridPos].roomB;
         }
 
         return CoordinateToRoom(gridPos);
