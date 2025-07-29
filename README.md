@@ -88,6 +88,30 @@ dotnet run
 
     Real-time metrics display
 
+        Advanced Rendering:
+
+        Floor/ceiling shaders
+
+        Sprite billboarding with depth testing
+
+        Z-buffer for occlusion handling
+
+    Game Systems:
+
+        Entity-component system
+
+        Pathfinding (HPA*)
+
+        Room-based dungeon generation
+
+    Performance Optimization:
+
+        Room-based visibility culling
+
+        Fixed timestep physics
+
+        Performance monitoring
+
 ## License
 
 This project is licensed under the MIT License. Feel free to use, modify, and distribute as you see fit!
