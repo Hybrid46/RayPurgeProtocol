@@ -45,10 +45,8 @@ class Raycaster
     static List<Entity> entities = new List<Entity>();
 
     // Player
-    static Entity playerEntity;
-    static Vector2 playerPos = new Vector2(1.5f, 1.5f);
-    static Vector2 playerDir = new Vector2(1, 0);
-    static Vector2 cameraPlane = new Vector2(0, FOV);
+    public static Entity playerEntity { get; private set; } = null;
+    public static PlayerController playerController;
 
     static HPAStar pathfindingSystem;
 
@@ -184,12 +182,14 @@ class Raycaster
             Position = new Vector2(1.5f, 1.5f)
         });
 
-        playerEntity.AddComponent(new PlayerController
+        playerController = playerEntity.AddComponent(new PlayerController
         {
             MoveSpeed = 5.0f,
             RotationSpeed = 3.0f,
             MouseRotationSpeed = 0.1f
         });
+
+        playerEntity.AddComponent(new HealthComponent(10));
     }
 
     //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
@@ -250,9 +250,9 @@ class Raycaster
         Raylib.BeginShaderMode(floorCeilingShader);
 
         // Set shader uniforms
-        Raylib.SetShaderValue(floorCeilingShader, playerPosLoc, playerPos, ShaderUniformDataType.Vec2);
-        Raylib.SetShaderValue(floorCeilingShader, playerDirLoc, playerDir, ShaderUniformDataType.Vec2);
-        Raylib.SetShaderValue(floorCeilingShader, cameraPlaneLoc, cameraPlane, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, playerPosLoc, playerEntity.transform.Position, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, playerDirLoc, playerController.Direction, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, cameraPlaneLoc, playerController.CameraPlane, ShaderUniformDataType.Vec2);
         Raylib.SetShaderValue(floorCeilingShader, screenWidthLoc, (float)internalScreenWidth, ShaderUniformDataType.Float);
         Raylib.SetShaderValue(floorCeilingShader, screenHeightLoc, (float)internalScreenHeight, ShaderUniformDataType.Float);
 
@@ -271,7 +271,7 @@ class Raycaster
         //Draw only visible entities in their room neighbour rooms and their neighbour rooms -> 2 room distance
         // Player room Door -> N1 -> Door -> N2
         List<Entity> visibleEntities = new List<Entity>(entities.Count);
-        Room playerRoom = roomGenerator.CoordinateToRoom(playerPos);
+        Room playerRoom = roomGenerator.CoordinateToRoom(playerEntity.transform.Position);
 
         foreach (Entity entity in entities)
         {
@@ -311,8 +311,8 @@ class Raycaster
         // Sort Entites by distance (far to near)
         visibleEntities.Sort((a, b) =>
         {
-            float distA = Vector2.DistanceSquared(a.transform.Position, playerPos);
-            float distB = Vector2.DistanceSquared(b.transform.Position, playerPos);
+            float distA = Vector2.DistanceSquared(a.transform.Position, playerEntity.transform.Position);
+            float distB = Vector2.DistanceSquared(b.transform.Position, playerEntity.transform.Position);
             return distB.CompareTo(distA);
         });
 
@@ -324,16 +324,16 @@ class Raycaster
 
         foreach (Entity entity in visibleEntities)
         {
-            if (Vector2.Distance(playerPos, entity.transform.Position) > drawDistance) continue;
+            if (Vector2.Distance(playerEntity.transform.Position, entity.transform.Position) > drawDistance) continue;
 
             RaySpriteRenderer sprite = entity.GetComponent<RaySpriteRenderer>();
 
             // Transform sprite position relative to camera
-            Vector2 spritePos = sprite.Position - playerPos;
-            float invDet = 1.0f / (cameraPlane.X * playerDir.Y - playerDir.X * cameraPlane.Y);
+            Vector2 spritePos = sprite.Position - playerEntity.transform.Position;
+            float invDet = 1.0f / (playerController.CameraPlane.X * playerController.Direction.Y - playerController.Direction.X * playerController.CameraPlane.Y);
 
-            float transformX = invDet * (playerDir.Y * spritePos.X - playerDir.X * spritePos.Y);
-            float transformY = invDet * (-cameraPlane.Y * spritePos.X + cameraPlane.X * spritePos.Y);
+            float transformX = invDet * (playerController.Direction.Y * spritePos.X - playerController.Direction.X * spritePos.Y);
+            float transformY = invDet * (-playerController.CameraPlane.Y * spritePos.X + playerController.CameraPlane.X * spritePos.Y);
 
             if (transformY <= 0) continue;  // Behind camera
 
@@ -480,14 +480,14 @@ class Raycaster
         }
 
         // Draw player
-        int playerMapX = (int)(MAP_POS.X + playerPos.X * MAP_SCALE);
-        int playerMapY = (int)(MAP_POS.Y + playerPos.Y * MAP_SCALE);
+        int playerMapX = (int)(MAP_POS.X + playerEntity.transform.Position.X * MAP_SCALE);
+        int playerMapY = (int)(MAP_POS.Y + playerEntity.transform.Position.Y * MAP_SCALE);
         Raylib.DrawCircle(playerMapX, playerMapY, 3, PlayerColor);
 
         // Draw direction line
         Vector2 endPos = new Vector2(
-            playerMapX + playerDir.X * 15,
-            playerMapY + playerDir.Y * 15
+            playerMapX + playerController.Direction.X * 15,
+            playerMapY + playerController.Direction.Y * 15
         );
         Raylib.DrawLine(playerMapX, playerMapY, (int)endPos.X, (int)endPos.Y, Color.White);
 
@@ -564,8 +564,8 @@ class Raycaster
         {
             // Calculate distance
             float perpWallDist = side == 0 ?
-                (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
-                (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
+                (mapX - playerEntity.transform.Position.X + (1 - stepX) * 0.5f) / rayDir.X :
+                (mapY - playerEntity.transform.Position.Y + (1 - stepY) * 0.5f) / rayDir.Y;
 
             perpWallDist = MathF.Abs(perpWallDist);
             perpWallDist = MathF.Max(perpWallDist, 0.01f);
@@ -595,13 +595,13 @@ class Raycaster
                 // Calculate ray direction with internal width
                 float cameraX = 2 * x / (float)internalScreenWidth - 1;
                 Vector2 rayDir = new Vector2(
-                    playerDir.X + cameraPlane.X * cameraX,
-                    playerDir.Y + cameraPlane.Y * cameraX
+                    playerController.Direction.X + playerController.CameraPlane.X * cameraX,
+                    playerController.Direction.Y + playerController.CameraPlane.Y * cameraX
                 );
 
                 // DDA setup
-                int mapX = (int)playerPos.X;
-                int mapY = (int)playerPos.Y;
+                int mapX = (int)playerEntity.transform.Position.X;
+                int mapY = (int)playerEntity.transform.Position.Y;
 
                 // Avoid division by zero
                 Vector2 deltaDist = new Vector2(
@@ -615,12 +615,12 @@ class Raycaster
 
                 // Initial side distances
                 sideDist.X = rayDir.X < 0 ?
-                    (playerPos.X - mapX) * deltaDist.X :
-                    (mapX + 1.0f - playerPos.X) * deltaDist.X;
+                    (playerEntity.transform.Position.X - mapX) * deltaDist.X :
+                    (mapX + 1.0f - playerEntity.transform.Position.X) * deltaDist.X;
 
                 sideDist.Y = rayDir.Y < 0 ?
-                    (playerPos.Y - mapY) * deltaDist.Y :
-                    (mapY + 1.0f - playerPos.Y) * deltaDist.Y;
+                    (playerEntity.transform.Position.Y - mapY) * deltaDist.Y :
+                    (mapY + 1.0f - playerEntity.transform.Position.Y) * deltaDist.Y;
 
                 // DDA
                 int side = 0;
@@ -650,8 +650,8 @@ class Raycaster
                 {
                     // Calculate distance
                     float perpWallDist = side == 0 ?
-                        (mapX - playerPos.X + (1 - stepX) * 0.5f) / rayDir.X :
-                        (mapY - playerPos.Y + (1 - stepY) * 0.5f) / rayDir.Y;
+                        (mapX - playerEntity.transform.Position.X + (1 - stepX) * 0.5f) / rayDir.X :
+                        (mapY - playerEntity.transform.Position.Y + (1 - stepY) * 0.5f) / rayDir.Y;
 
                     perpWallDist = MathF.Abs(perpWallDist);
                     perpWallDist = MathF.Max(perpWallDist, 0.01f);
@@ -683,8 +683,8 @@ class Raycaster
 
                     // Calculate texture x-coordinate
                     float wallX = side == 0 ?
-                        playerPos.Y + perpWallDist * rayDir.Y :
-                        playerPos.X + perpWallDist * rayDir.X;
+                        playerEntity.transform.Position.Y + perpWallDist * rayDir.Y :
+                        playerEntity.transform.Position.X + perpWallDist * rayDir.X;
                     wallX -= MathF.Floor(wallX);
 
                     int texX = (int)(wallX * TEXTURE_SIZE);
@@ -739,17 +739,17 @@ class Raycaster
             DrawEntitys();
         }
 
-        using (PerformanceMonitor.Measure(t => PerformanceMonitor.zBufferDrawTime = t))
-        {
-            DrawZBuffer();
-        }
+        //using (PerformanceMonitor.Measure(t => PerformanceMonitor.zBufferDrawTime = t))
+        //{
+        //    DrawZBuffer();
+        //}
 
         Raylib.EndTextureMode();
     }
 
     private static Entity CastShootingRay(out float hitDistance)
     {
-        hitDistance = CastDDA(playerDir, playerPos, MAP).distance; // Distance to wall hit
+        hitDistance = CastDDA(playerController.Direction, playerEntity.transform.Position, MAP).distance; // Distance to wall hit
 
         Entity hitEnemy = null;
         float closestT = float.MaxValue;
@@ -757,13 +757,13 @@ class Raycaster
 
         foreach (Entity entity in entities)
         {
-            Vector2 toSprite = entity.transform.Position - playerPos;
-            float t = Vector2.Dot(toSprite, playerDir);
+            Vector2 toSprite = entity.transform.Position - playerEntity.transform.Position;
+            float t = Vector2.Dot(toSprite, playerController.Direction);
 
             // Skip if behind player or too close
             if (t < 0.1f) continue;
 
-            Vector2 closestPoint = playerPos + t * playerDir;
+            Vector2 closestPoint = playerEntity.transform.Position + t * playerController.Direction;
             float distanceSq = Vector2.DistanceSquared(closestPoint, entity.transform.Position);
 
             // Check if within sprite radius and closer than wall
@@ -781,7 +781,7 @@ class Raycaster
 
     private static void Interact()
     {
-        RayHit hit = CastDDA(playerDir, playerPos, MAP);
+        RayHit hit = CastDDA(playerController.Direction, playerEntity.transform.Position, MAP);
 
         //Toggle Door
         if (MAP[hit.mapX, hit.mapY] == 2 && hit.distance <= 1f)
@@ -936,7 +936,7 @@ class Raycaster
 
         foreach (Entity entity in entities)
         {
-            //entity.GetComponent<RoachAI>().targetPosition = playerPos;
+            //entity.GetComponent<RoachAI>().targetPosition = playerEntity.transform.Position;
 
             entity.Update();
 
@@ -964,54 +964,54 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.D))
         {
             // Rotate left using matrix multiplication
-            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(rotationStep));
-            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(rotationStep));
+            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(rotationStep));
+            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(rotationStep));
         }
 
         if (Raylib.IsKeyDown(KeyboardKey.A))
         {
             // Rotate right using matrix multiplication
-            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-rotationStep));
-            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(-rotationStep));
+            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(-rotationStep));
+            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(-rotationStep));
         }
 
         if (Raylib.IsKeyDown(KeyboardKey.W))
         {
-            Vector2 newPos = playerPos + playerDir * moveStep;
+            Vector2 newPos = playerEntity.transform.Position + playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
-                playerPos = newPos;
+                playerEntity.transform.Position = newPos;
             }
         }
 
         if (Raylib.IsKeyDown(KeyboardKey.S))
         {
-            Vector2 newPos = playerPos - playerDir * moveStep;
+            Vector2 newPos = playerEntity.transform.Position - playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
-                playerPos = newPos;
+                playerEntity.transform.Position = newPos;
             }
         }
 
         if (Raylib.IsKeyDown(KeyboardKey.Q))
         {
-            Vector2 newPos = playerPos + new Vector2(playerDir.Y, -playerDir.X) * moveStep;
+            Vector2 newPos = playerEntity.transform.Position + new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
-                playerPos = newPos;
+                playerEntity.transform.Position = newPos;
             }
         }
 
         if (Raylib.IsKeyDown(KeyboardKey.E))
         {
-            Vector2 newPos = playerPos - new Vector2(playerDir.Y, -playerDir.X) * moveStep;
+            Vector2 newPos = playerEntity.transform.Position - new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < MAP.GetLength(0) && newPos.Y >= 0 && newPos.Y < MAP.GetLength(1) &&
                 MAP[(int)newPos.X, (int)newPos.Y] == 0)
             {
-                playerPos = newPos;
+                playerEntity.transform.Position = newPos;
             }
         }
 
@@ -1031,14 +1031,14 @@ class Raycaster
 
         if (mouseDelta.X > 0)
         {
-            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(mouseRotationStep));
-            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(mouseRotationStep));
+            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(mouseRotationStep));
+            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(mouseRotationStep));
         }
 
         if (mouseDelta.X < 0)
         {
-            playerDir = Vector2.Transform(playerDir, Matrix3x2.CreateRotation(-mouseRotationStep));
-            cameraPlane = Vector2.Transform(cameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
+            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(-mouseRotationStep));
+            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
         }
 
         if (Raylib.IsMouseButtonPressed(MouseButton.Left))
