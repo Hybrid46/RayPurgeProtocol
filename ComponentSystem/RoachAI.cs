@@ -16,6 +16,7 @@ public class RoachAI : Component, IUpdatable
     private float attackCooldown = 1.0f; // Time between attacks
     private float attackTimer = 0f;
     private const float VisionDistance = 20f; // Maximum vision distance
+    private const float AggroDistance = 1f; // Distance to aggro without line of sight
 
     private enum State
     {
@@ -37,7 +38,12 @@ public class RoachAI : Component, IUpdatable
     {
         if (pathfinder == null) return;
 
-        CheckForPlayer();
+        // Always check if we should attack
+        if (ShouldAttackPlayer())
+        {
+            currentState = State.Attacking;
+            currentPath.Clear();
+        }
 
         switch (currentState)
         {
@@ -91,21 +97,31 @@ public class RoachAI : Component, IUpdatable
         }
     }
 
-    private void CheckForPlayer()
+    private bool ShouldAttackPlayer()
     {
-        // Check if we're in the same room as player
-        Room currentRoom = GetCurrentRoom();
-        Room playerRoom = roomGenerator.FindRoomContaining(Raycaster.playerEntity.transform.Position);
+        // Always attack if we're already attacking
+        if (currentState == State.Attacking) return true;
 
-        bool inSameRoom = currentRoom == playerRoom;
-        bool hasLineOfSight = inSameRoom || HasLineOfSight(Entity.transform.Position, Raycaster.playerEntity.transform.Position);
+        Vector2 playerPos = Raycaster.playerEntity.transform.Position;
+        Vector2 myPos = Entity.transform.Position;
+        float sqrDist = Vector2.DistanceSquared(myPos, playerPos);
 
-        // Switch to attacking if we see player and are close enough
-        if (hasLineOfSight && Vector2.Distance(Entity.transform.Position, Raycaster.playerEntity.transform.Position) <= VisionDistance)
-        {
-            currentState = State.Attacking;
-            currentPath.Clear(); // Clear any existing path
-        }
+        // Check if player is very close regardless of line of sight
+        if (sqrDist < AggroDistance * AggroDistance) return true;
+
+        // Check if we're in the same room
+        Room myRoom = GetCurrentRoom();
+        Room playerRoom = roomGenerator.FindRoomContaining(playerPos);
+        if (myRoom != null && playerRoom != null && myRoom == playerRoom) return true;
+
+        // Check vision distance
+        if (sqrDist > VisionDistance * VisionDistance) return false;
+
+        // Use DDA for line-of-sight check
+        Raycaster.RayHit hit = Raycaster.CastDDA(playerPos - myPos, myPos, roomGenerator.intgrid);
+
+        // Attack if we have direct line of sight to player
+        return !hit.IsHit() || (hit.distance * hit.distance >= sqrDist);
     }
 
     private void UpdateAttacking()
@@ -117,7 +133,29 @@ public class RoachAI : Component, IUpdatable
         if (distance > attackRange)
         {
             Vector2 direction = Vector2.Normalize(toPlayer);
-            Entity.transform.Position += direction * moveSpeed * Settings.fixedDeltaTime;
+
+            // Try direct movement first
+            Vector2 newPos = Entity.transform.Position + direction * moveSpeed * Settings.fixedDeltaTime;
+
+            // Check if direct path is blocked
+            if (IsPathBlocked(Entity.transform.Position, newPos))
+            {
+                // Use pathfinding if direct path is blocked
+                if (currentPath.Count == 0 || currentIndex >= currentPath.Count)
+                {
+                    currentPath = pathfinder.FindPath(Entity.transform.Position, Raycaster.playerEntity.transform.Position);
+                    currentIndex = 0;
+                }
+
+                if (currentPath.Count > 0)
+                {
+                    FollowPath();
+                }
+            }
+            else
+            {
+                Entity.transform.Position = newPos;
+            }
         }
         else // Attack when in range
         {
@@ -129,13 +167,34 @@ public class RoachAI : Component, IUpdatable
             }
         }
 
-        // Check if we lost sight of player
-        if (!HasLineOfSight(Entity.transform.Position, Raycaster.playerEntity.transform.Position) ||
-            Vector2.Distance(Entity.transform.Position, Raycaster.playerEntity.transform.Position) > VisionDistance)
+        // Only stop attacking if player is very far
+        if (Vector2.DistanceSquared(Entity.transform.Position, Raycaster.playerEntity.transform.Position) > (VisionDistance * 1.5f) * (VisionDistance * 1.5f))
         {
             currentState = State.Idle;
             idleTimer = 0;
             GetNewRandomTarget();
+        }
+    }
+
+    private bool IsPathBlocked(Vector2 start, Vector2 end)
+    {
+        Vector2 dir = end - start;
+        Raycaster.RayHit hit = Raycaster.CastDDA(dir, start, roomGenerator.intgrid);
+        return hit.IsHit() && hit.distance < dir.Length();
+    }
+
+    private void FollowPath()
+    {
+        if (currentIndex < currentPath.Count)
+        {
+            Vector2 targetPos = currentPath[currentIndex];
+            Vector2 direction = Vector2.Normalize(targetPos - Entity.transform.Position);
+            Entity.transform.Position += direction * moveSpeed * Settings.fixedDeltaTime;
+
+            if (Vector2.DistanceSquared(Entity.transform.Position, targetPos) < 0.1f)
+            {
+                currentIndex++;
+            }
         }
     }
 
@@ -148,41 +207,6 @@ public class RoachAI : Component, IUpdatable
             playerHealth.TakeDamage(1);
             Console.WriteLine("Roach attacked player! Player health: " + playerHealth.CurrentHP);
         }
-    }
-
-    private bool HasLineOfSight(Vector2 start, Vector2 end)
-    {
-        Vector2 direction = end - start;
-        float distance = direction.Length();
-        direction = Vector2.Normalize(direction);
-
-        int steps = (int)(distance * 2); // 2 checks per unit
-        int[,] map = roomGenerator.intgrid;
-
-        for (int i = 0; i <= steps; i++)
-        {
-            Vector2 pos = start + direction * (distance * i / steps);
-            int x = (int)pos.X;
-            int y = (int)pos.Y;
-
-            // Out of bounds
-            if (x < 0 || x >= map.GetLength(0) || y < 0 || y >= map.GetLength(1))
-                return false;
-
-            // Hit a wall
-            if (map[x, y] == 1)
-                return false;
-
-            // Hit a closed door
-            if (map[x, y] == 2)
-            {
-                Vector2IntR doorPos = new Vector2IntR(x, y);
-                if (roomGenerator.doorPositionMap.TryGetValue(doorPos, out Door door) && !door.isOpen)
-                    return false;
-            }
-        }
-
-        return true;
     }
 
     private void GetNewRandomTarget()

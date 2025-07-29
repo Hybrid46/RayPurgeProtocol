@@ -7,7 +7,7 @@ using static RoomGenerator;
 
 class Raycaster
 {
-    private struct RayHit
+    public struct RayHit
     {
         public int mapX;
         public int mapY;
@@ -508,8 +508,15 @@ class Raycaster
         Raylib.DrawTexture(textures["crosshairs"], centerX - textures["crosshairs"].Width / 2, centerY - textures["crosshairs"].Height / 2, Color.White);
     }
 
-    private static RayHit CastDDA(Vector2 rayDir, Vector2 position, int[,] map) => CastDDA(rayDir.X, rayDir.Y, position.X, position.Y, map);
-    private static RayHit CastDDA(float rayDirX, float rayDirY, float posX, float posY, int[,] map)
+    public static bool IsPathBlocked(Vector2 start, Vector2 end, int[,] map)
+    {
+        Vector2 dir = end - start;
+        RayHit hit = CastDDA(dir, start, map);
+        return hit.IsHit() && hit.distance < dir.Length();
+    }
+
+    public static RayHit CastDDA(Vector2 rayDir, Vector2 position, int[,] map) => CastDDA(rayDir.X, rayDir.Y, position.X, position.Y, map);
+    public static RayHit CastDDA(float rayDirX, float rayDirY, float posX, float posY, int[,] map)
     {
         Vector2 rayDir = new Vector2(rayDirX, rayDirY);
 
