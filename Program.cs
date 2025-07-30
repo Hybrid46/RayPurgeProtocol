@@ -1055,7 +1055,7 @@ class Raycaster
 
             if (hitEnemy != null)
             {
-                hitEnemy.GetComponent<HealthComponent>().TakeDamage(1);
+                hitEnemy.healthComponent.TakeDamage(1);
                 Console.WriteLine("Hit enemy!");
 
                 // Optional: Play hit sound

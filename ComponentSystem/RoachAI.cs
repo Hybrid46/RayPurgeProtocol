@@ -201,7 +201,7 @@ public class RoachAI : Component, IUpdatable
     private void AttackPlayer()
     {
         // Damage player
-        HealthComponent playerHealth = Raycaster.playerEntity?.GetComponent<HealthComponent>();
+        HealthComponent playerHealth = Raycaster.playerEntity?.healthComponent;
         if (playerHealth != null)
         {
             playerHealth.TakeDamage(1);
