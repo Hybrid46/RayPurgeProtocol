@@ -945,12 +945,10 @@ class Raycaster
 
         foreach (Entity entity in entities)
         {
-            //entity.GetComponent<RoachAI>().targetPosition = playerEntity.transform.Position;
-
             entity.Update();
 
             //Remove dead entites
-            if (entity.GetComponent<HealthComponent>().CurrentHP <= 0)
+            if (entity.healthComponent.CurrentHP <= 0)
             {
                 entitiesToRemove.Push(entity);
             }
