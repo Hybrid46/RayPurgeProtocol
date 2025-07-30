@@ -326,7 +326,9 @@ class Raycaster
         {
             if (Vector2.Distance(playerEntity.transform.Position, entity.transform.Position) > drawDistance) continue;
 
-            RaySpriteRenderer sprite = entity.GetComponent<RaySpriteRenderer>();
+            RaySpriteRenderer sprite = entity.raySpriteRenderer;
+
+            if (sprite == null) continue;
 
             // Transform sprite position relative to camera
             Vector2 spritePos = sprite.Position - playerEntity.transform.Position;

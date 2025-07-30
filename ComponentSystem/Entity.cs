@@ -5,19 +5,19 @@ public class Entity
 {
     private readonly Dictionary<Type, Component> _components = new();
     private Transform _cachedTransform;
+    private RaySpriteRenderer _cachedRaySpriteRenderer;
 
     public Transform transform => _cachedTransform;
+    public RaySpriteRenderer raySpriteRenderer => _cachedRaySpriteRenderer;
 
     public T AddComponent<T>(T component) where T : Component
     {
         component.Entity = this;
         _components[typeof(T)] = component;
 
-        // Update cache when adding Transform
-        if (component is Transform transform)
-        {
-            _cachedTransform = transform;
-        }
+        // Update cache
+        if (component is Transform transform) _cachedTransform = transform;
+        if (component is RaySpriteRenderer raySpriteRenderer) _cachedRaySpriteRenderer = raySpriteRenderer;
 
         return component;
     }
@@ -25,10 +25,8 @@ public class Entity
     public T GetComponent<T>() where T : Component
     {
         // Special handling for Transform
-        if (typeof(T) == typeof(Transform))
-        {
-            return _cachedTransform as T;
-        }
+        if (typeof(T) == typeof(Transform)) return _cachedTransform as T;
+        if (typeof(T) == typeof(RaySpriteRenderer)) return _cachedRaySpriteRenderer as T;
 
         return _components.TryGetValue(typeof(T), out var component)
             ? (T)component
