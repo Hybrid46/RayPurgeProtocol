@@ -91,6 +91,8 @@ class Raycaster
         textures.Add("roach_blue", LoadTexture("Assets/roach_blue.png"));
         textures.Add("roach_green", LoadTexture("Assets/roach_green.png"));
 
+        textures.Add("electro_bullet", LoadTexture("Assets/electro_bullet.png"));
+
         Texture2D LoadTexture(string path, bool repeat = false)
         {
             Texture2D tex = Raylib.LoadTexture(path);
@@ -304,7 +306,7 @@ class Raycaster
                 }
             }
 
-            nextEntity:;
+        nextEntity:;
         }
 
         //TODO Sort only visibles
@@ -946,14 +948,10 @@ class Raycaster
         foreach (Entity entity in entities)
         {
             entity.Update();
-
-            //Remove dead entites
-            if (entity.healthComponent.CurrentHP <= 0)
-            {
-                entitiesToRemove.Push(entity);
-            }
+            if (entity.destroy) entitiesToRemove.Push(entity);
         }
 
+        //Remove dead entites
         while (entitiesToRemove.Count > 0)
         {
             Entity entity = entitiesToRemove.Pop();
@@ -1053,9 +1051,24 @@ class Raycaster
             float wallDist;
             Entity hitEnemy = CastShootingRay(out wallDist);
 
+            //instantiate a bullet with lifetime as a health component
+            Entity bullet = new Entity();
+            bullet.AddComponent(new Transform
+            {
+                Position = playerEntity.transform.Position
+            });
+            bullet.AddComponent(new RaySpriteRenderer
+            {
+                Texture = textures["electro_bullet"],
+            });
+            bullet.AddComponent(new BulletHealthComponent(10));
+            bullet.AddComponent(new MovementComponent(playerController.Direction, 10f));
+
+            entities.Add(bullet);
+
             if (hitEnemy != null)
             {
-                hitEnemy.healthComponent.TakeDamage(1);
+                hitEnemy.healthComponent?.TakeDamage(1);
                 Console.WriteLine("Hit enemy!");
 
                 // Optional: Play hit sound

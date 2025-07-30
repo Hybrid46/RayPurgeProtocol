@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-public class HealthComponent : Component
+﻿public class HealthComponent : Component
 {
     public int MaxHP { get; private set; }
     public int CurrentHP { get; private set; }
@@ -18,9 +15,9 @@ public class HealthComponent : Component
         if (CurrentHP == 0) Die();
     }
 
-    private void Die()
+    protected virtual void Die()
     {
-        // Handle death
-        Console.WriteLine("Enemy died!");
+        Entity.Destroy();
+        Console.WriteLine($"Entity {GetHashCode()} died!");
     }
 }

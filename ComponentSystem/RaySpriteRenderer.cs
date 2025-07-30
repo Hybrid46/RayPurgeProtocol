@@ -1,7 +1,5 @@
 ﻿using Raylib_cs;
 using System.Numerics;
-using System;
-using System.Collections.Generic;
 
 public class RaySpriteRenderer : Component
 {
