@@ -6,6 +6,7 @@ static class PerformanceMonitor
     public static double SpriteDrawTime { get; set; }
     public static double zBufferDrawTime { get; set; }
     public static double depthTextureTime { get; set; }
+    public static double fixedUpdateTime { get; set; }
 
     private static readonly Stopwatch timer = new();
 

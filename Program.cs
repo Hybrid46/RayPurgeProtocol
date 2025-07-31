@@ -236,7 +236,7 @@ class Raycaster
         Raylib.DrawText($"Sprite draw: {PerformanceMonitor.SpriteDrawTime:F2} ms", startX, startY + lineHeight, lineHeight, Color.Green);
         Raylib.DrawText($"Z-Buffer draw: {PerformanceMonitor.zBufferDrawTime:F2} ms", startX, startY + lineHeight * 2, lineHeight, Color.Green);
         Raylib.DrawText($"Depth Texture: {PerformanceMonitor.depthTextureTime:F2} ms", startX, startY + lineHeight * 3, lineHeight, Color.Green);
-        Raylib.DrawText($"Update time: {updateTimeMs:F2} ms", startX, startY + lineHeight * 4, lineHeight, Color.Lime);
+        Raylib.DrawText($"Fixed Update time: {PerformanceMonitor.fixedUpdateTime:F2} ms", startX, startY + lineHeight * 4, lineHeight, Color.Lime);
         Raylib.DrawText($"Total Frame time: {totalFrameTimeMs:F2} ms", startX, startY + lineHeight * 5, lineHeight, Color.Yellow);
         Raylib.DrawText($"FPS: {Raylib.GetFPS()}", startX, startY + lineHeight * 6, lineHeight, Color.Yellow);
         Raylib.DrawText($"UPS: {ups}", startX, startY + lineHeight * 7, lineHeight, Color.SkyBlue);
@@ -870,7 +870,6 @@ class Raycaster
                 Stopwatch updateTimer = Stopwatch.StartNew();
                 FixedUpdate();
                 updateTimer.Stop();
-                updateTimeMs += updateTimer.Elapsed.TotalMilliseconds;
 
                 accumulator -= fixedDeltaTime;
                 upsCount++;
@@ -882,7 +881,6 @@ class Raycaster
             {
                 ups = upsCount;
                 upsCount = 0;
-                updateTimeMs /= ups; // Average update time
                 upsTimer -= 1.0;
             }
 
@@ -936,9 +934,12 @@ class Raycaster
 
     static void FixedUpdate()
     {
-        HandleKeyboard();
-        HandleMouse();
-        HandleEntites();
+        using (PerformanceMonitor.Measure(t => PerformanceMonitor.fixedUpdateTime = t))
+        {
+            HandleKeyboard();
+            HandleMouse();
+            HandleEntites();
+        }
     }
 
     private static void HandleEntites()
