@@ -16,7 +16,6 @@ public class RoachAI : Component, IUpdatable
     private float attackCooldown = 1.0f; // Time between attacks
     private float attackTimer = 0f;
     private const float VisionDistance = 20f; // Maximum vision distance
-    private const float AggroDistance = 1f; // Distance to aggro without line of sight
 
     private enum State
     {
@@ -71,15 +70,24 @@ public class RoachAI : Component, IUpdatable
 
         Vector2 targetPos = currentPath[currentIndex];
         Vector2 direction = Vector2.Normalize(targetPos - Entity.transform.Position);
+        Vector2 newPos = Entity.transform.Position + direction * moveSpeed * Settings.fixedDeltaTime;
 
-        Entity.transform.Position += direction * moveSpeed * Settings.fixedDeltaTime;
+        // Add wall collision check
+        if (IsPositionBlocked(newPos))
+        {
+            currentPath.Clear();
+            currentState = State.Idle;
+            idleTimer = 0;
+            return;
+        }
+
+        Entity.transform.Position = newPos;
 
         if (Vector2.DistanceSquared(Entity.transform.Position, targetPos) < 0.1f)
         {
             currentIndex++;
             if (currentIndex >= currentPath.Count)
             {
-                // Reached final target - go idle
                 currentState = State.Idle;
                 idleTimer = 0;
             }
@@ -106,9 +114,6 @@ public class RoachAI : Component, IUpdatable
         Vector2 myPos = Entity.transform.Position;
         float sqrDist = Vector2.DistanceSquared(myPos, playerPos);
 
-        // Check if player is very close regardless of line of sight
-        if (sqrDist < AggroDistance * AggroDistance) return true;
-
         // Check if we're in the same room
         Room myRoom = GetCurrentRoom();
         Room playerRoom = roomGenerator.FindRoomContaining(playerPos);
@@ -116,12 +121,10 @@ public class RoachAI : Component, IUpdatable
 
         // Check vision distance
         if (sqrDist > VisionDistance * VisionDistance) return false;
-
         // Use DDA for line-of-sight check
         Raycaster.RayHit hit = Raycaster.CastDDA(playerPos - myPos, myPos, roomGenerator.intgrid);
-
         // Attack if we have direct line of sight to player
-        return !hit.IsHit() || (hit.distance * hit.distance >= sqrDist);
+        return !hit.IsHit();
     }
 
     private void UpdateAttacking()
@@ -129,18 +132,13 @@ public class RoachAI : Component, IUpdatable
         Vector2 toPlayer = Raycaster.playerEntity.transform.Position - Entity.transform.Position;
         float distance = toPlayer.Length();
 
-        // Move towards player if not in attack range
         if (distance > attackRange)
         {
             Vector2 direction = Vector2.Normalize(toPlayer);
-
-            // Try direct movement first
             Vector2 newPos = Entity.transform.Position + direction * moveSpeed * Settings.fixedDeltaTime;
 
-            // Check if direct path is blocked
-            if (IsPathBlocked(Entity.transform.Position, newPos))
+            if (IsPathBlocked(Entity.transform.Position, newPos) || IsPositionBlocked(newPos))
             {
-                // Use pathfinding if direct path is blocked
                 if (currentPath.Count == 0 || currentIndex >= currentPath.Count)
                 {
                     currentPath = pathfinder.FindPath(Entity.transform.Position, Raycaster.playerEntity.transform.Position);
@@ -157,7 +155,7 @@ public class RoachAI : Component, IUpdatable
                 Entity.transform.Position = newPos;
             }
         }
-        else // Attack when in range
+        else //attack when in range
         {
             attackTimer += Settings.fixedDeltaTime;
             if (attackTimer >= attackCooldown)
@@ -176,6 +174,30 @@ public class RoachAI : Component, IUpdatable
         }
     }
 
+    private bool IsPositionBlocked(Vector2 position)
+    {
+        Vector2IntR gridPos = new Vector2IntR(position);
+        if (!roomGenerator.IsWithinGrid(gridPos))
+            return true; // Out of bounds is blocked
+
+        int tile = roomGenerator.intgrid[gridPos.x, gridPos.y];
+
+        // Block walls (tile 1)
+        if (tile == 1) return true;
+
+        // Block closed doors (tile 2 with isOpen=false)
+        if (tile == 2)
+        {
+            if (roomGenerator.doorPositionMap.TryGetValue(gridPos, out Door door))
+            {
+                return !door.isOpen; // Block if door is closed
+            }
+            return true; // Block if door not found (shouldn't happen)
+        }
+
+        return false; // All other tiles are passable
+    }
+
     private bool IsPathBlocked(Vector2 start, Vector2 end)
     {
         Vector2 dir = end - start;
@@ -189,7 +211,17 @@ public class RoachAI : Component, IUpdatable
         {
             Vector2 targetPos = currentPath[currentIndex];
             Vector2 direction = Vector2.Normalize(targetPos - Entity.transform.Position);
-            Entity.transform.Position += direction * moveSpeed * Settings.fixedDeltaTime;
+            Vector2 newPos = Entity.transform.Position + direction * moveSpeed * Settings.fixedDeltaTime;
+
+            if (IsPositionBlocked(newPos))
+            {
+                currentPath.Clear();
+                currentState = State.Idle;
+                idleTimer = 0;
+                return;
+            }
+
+            Entity.transform.Position = newPos;
 
             if (Vector2.DistanceSquared(Entity.transform.Position, targetPos) < 0.1f)
             {

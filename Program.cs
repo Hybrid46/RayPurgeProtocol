@@ -273,11 +273,11 @@ class Raycaster
         //Draw only visible entities in their room neighbour rooms and their neighbour rooms -> 2 room distance
         // Player room Door -> N1 -> Door -> N2
         List<Entity> visibleEntities = new List<Entity>(entities.Count);
-        Room playerRoom = roomGenerator.CoordinateToRoom(playerEntity.transform.Position);
+        Room playerRoom = roomGenerator.GetRoomAtPosition(playerEntity.transform.Position);
 
         foreach (Entity entity in entities)
         {
-            Room entityRoom = roomGenerator.CoordinateToRoom(entity.transform.Position);
+            Room entityRoom = roomGenerator.GetRoomAtPosition(entity.transform.Position);
 
             // Entity is in the same room as player
             if (playerRoom == entityRoom)

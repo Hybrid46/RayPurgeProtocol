@@ -493,21 +493,7 @@ public class RoomGenerator
 
     public bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
 
-    public Door CoordinateToDoor(Vector2IntR coord)
-    {
-        Room doorRoom = CoordinateToRoom(coord);
-
-        foreach (Door door in doorRoom.doors)
-        {
-            if (door.position == coord)
-            {
-                return door;
-            }
-        }
-
-        return null;
-    }
-
+    [Obsolete("Use GetRoomAtPosition() instead!")]
     public Room FindRoomContaining(Vector2 position)
     {
         Vector2IntR gridPos = new Vector2IntR(position);
@@ -519,16 +505,24 @@ public class RoomGenerator
             return (position.X - MathF.Truncate(position.X) < 0.5f) ? doorPositionMap[gridPos].roomA : doorPositionMap[gridPos].roomB;
         }
 
-        return CoordinateToRoom(gridPos);
+        return GetRoomAtPosition(gridPos);
     }
 
-    public Room CoordinateToRoom(Vector2 position) => CoordinateToRoom(new Vector2IntR(position));
-    public Room CoordinateToRoom(Vector2IntR coord)
+    public Door GetDoorAtPosition(Vector2 position) => GetDoorAtPosition(new Vector2IntR(position));
+    public Door GetDoorAtPosition(Vector2IntR gridPos)
+    {
+        doorPositionMap.TryGetValue(gridPos, out Door door);
+        return door;
+    }
+
+    public Room GetRoomAtPosition(Vector2 position) => GetRoomAtPosition(new Vector2IntR(position));
+    public Room GetRoomAtPosition(Vector2IntR coord)
     {
         coordToRoomMap.TryGetValue(coord, out Room room);
         return room;
     }
 
+    [Obsolete("Use GetRoomAtPosition() instead!")]
     private Room CoordinateToRoomSlow(Vector2IntR coord)
     {
         foreach (Room room in rooms)
