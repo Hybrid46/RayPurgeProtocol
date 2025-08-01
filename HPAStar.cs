@@ -78,8 +78,8 @@ public class HPAStar
 
     public List<Vector2> FindPath(Vector2 start, Vector2 goal)
     {
-        Room startRoom = roomGenerator.FindRoomContaining(start);
-        Room goalRoom = roomGenerator.FindRoomContaining(goal);
+        Room startRoom = roomGenerator.GetRoomAtPosition(start);
+        Room goalRoom = roomGenerator.GetRoomAtPosition(goal);
 
         if (startRoom == null || goalRoom == null) return new List<Vector2>();
 

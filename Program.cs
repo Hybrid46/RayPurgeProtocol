@@ -135,10 +135,13 @@ class Raycaster
     private static void LoadEnemys()
     {
         float spawnChance = 0.25f;
+        Room playerRoom = roomGenerator.GetRoomAtPosition(playerEntity.transform.Position);
 
-        for (int i = 0; i < roomGenerator.rooms.Count; i++)
+        foreach (Room room in roomGenerator.rooms)
         {
-            foreach (Vector2IntR pos in roomGenerator.rooms[i].coords)
+            if (room == playerRoom) continue; // Skip the player's room
+
+            foreach (Vector2IntR pos in room.coords)
             {
                 if (RandomR.value < spawnChance)
                 {
@@ -833,8 +836,8 @@ class Raycaster
         LoadTextures();
         LoadShaders();
         LoadMap();
-        LoadEnemys();
         CreatePlayer();
+        LoadEnemys();
 
         while (!Raylib.WindowShouldClose())
         {

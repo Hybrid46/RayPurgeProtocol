@@ -116,7 +116,7 @@ public class RoachAI : Component, IUpdatable
 
         // Check if we're in the same room
         Room myRoom = GetCurrentRoom();
-        Room playerRoom = roomGenerator.FindRoomContaining(playerPos);
+        Room playerRoom = roomGenerator.GetRoomAtPosition(playerPos);
         if (myRoom != null && playerRoom != null && myRoom == playerRoom) return true;
 
         // Check vision distance
@@ -279,8 +279,6 @@ public class RoachAI : Component, IUpdatable
 
     private Room GetCurrentRoom()
     {
-        Vector2IntR gridPos = new Vector2IntR(Entity.transform.Position);
-
-        return roomGenerator.FindRoomContaining(gridPos);
+        return roomGenerator.GetRoomAtPosition(Entity.transform.Position);
     }
 }
