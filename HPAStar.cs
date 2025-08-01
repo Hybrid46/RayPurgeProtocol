@@ -1,7 +1,5 @@
 ﻿using static RoomGenerator;
 using System.Numerics;
-using System.IO;
-using System;
 
 public class HPAStar
 {
@@ -13,23 +11,36 @@ public class HPAStar
     {
         this.roomGenerator = roomGenerator;
 
-        // Create clusters and door nodes
+        // Create clusters for each room
         foreach (Room room in roomGenerator.rooms)
         {
             Cluster cluster = new Cluster(room);
             clusters.Add(room, cluster);
+        }
 
+        // Create door nodes and properly associate them with clusters
+        foreach (Room room in roomGenerator.rooms)
+        {
             foreach (Door door in room.doors)
             {
                 if (!doorNodes.ContainsKey(door.position))
                 {
                     DoorNode node = new DoorNode(door.position);
                     doorNodes.Add(door.position, node);
-                    node.Clusters.Add(cluster);
+
+                    // Properly associate this door with all clusters it belongs to
+                    if (door.roomA != null && clusters.ContainsKey(door.roomA))
+                        node.Clusters.Add(clusters[door.roomA]);
+                    if (door.roomB != null && clusters.ContainsKey(door.roomB))
+                        node.Clusters.Add(clusters[door.roomB]);
                 }
                 else
                 {
-                    doorNodes[door.position].Clusters.Add(cluster);
+                    // If door node already exists, add the cluster association
+                    if (door.roomA != null && clusters.ContainsKey(door.roomA))
+                        doorNodes[door.position].Clusters.Add(clusters[door.roomA]);
+                    if (door.roomB != null && clusters.ContainsKey(door.roomB))
+                        doorNodes[door.position].Clusters.Add(clusters[door.roomB]);
                 }
             }
         }
@@ -37,17 +48,25 @@ public class HPAStar
         // Connect door nodes within clusters
         foreach (Cluster cluster in clusters.Values)
         {
-            cluster.DoorNodes = cluster.Room.doors
-                          .Select(door => doorNodes[door.position])
-                          .ToList();
+            List<DoorNode> clusterDoors = new List<DoorNode>();
+
+            foreach (Door door in cluster.Room.doors)
+            {
+                if (doorNodes.ContainsKey(door.position))
+                {
+                    clusterDoors.Add(doorNodes[door.position]);
+                }
+            }
+
+            cluster.DoorNodes = clusterDoors;
 
             // Connect all doors within the same cluster
-            for (int i = 0; i < cluster.DoorNodes.Count; i++)
+            for (int i = 0; i < clusterDoors.Count; i++)
             {
-                for (int j = i + 1; j < cluster.DoorNodes.Count; j++)
+                for (int j = i + 1; j < clusterDoors.Count; j++)
                 {
-                    DoorNode a = cluster.DoorNodes[i];
-                    DoorNode b = cluster.DoorNodes[j];
+                    DoorNode a = clusterDoors[i];
+                    DoorNode b = clusterDoors[j];
                     float distance = Vector2.Distance(a.Position, b.Position);
                     a.AddNeighbor(b, distance);
                     b.AddNeighbor(a, distance);
@@ -55,6 +74,7 @@ public class HPAStar
             }
         }
     }
+
 
     public List<Vector2> FindPath(Vector2 start, Vector2 goal)
     {
@@ -67,14 +87,14 @@ public class HPAStar
         PositionNode startNode = new PositionNode(start);
         PositionNode goalNode = new PositionNode(goal);
 
-        // Always connect start to doors in its room (no raycast needed)
+        // Always connect start to doors in its room
         foreach (DoorNode door in clusters[startRoom].DoorNodes)
         {
             float cost = Vector2.Distance(start, door.Position);
             startNode.AddNeighbor(door, cost);
         }
 
-        // Always connect goal to doors in its room (no raycast needed)
+        // Always connect goal to doors in its room
         foreach (DoorNode door in clusters[goalRoom].DoorNodes)
         {
             float cost = Vector2.Distance(goal, door.Position);
