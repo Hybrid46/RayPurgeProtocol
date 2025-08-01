@@ -3,19 +3,19 @@ using System.Numerics;
 
 public class RoachAI : Component, IUpdatable
 {
-    private const float chanceToStayInRoom = 0.7f; // 30% chance to go to a neighbor room
+    private const float CHANCE_TO_STAY_IN_ROOM = 0.7f; // 30% chance to go to a neighbor room
+    private const float IDLE_TIME = 1.0f;
+    private const float ATTACK_RANGE = 0.5f;
+    private const float ATTACK_COOLDOWN = 1.0f;
+    private const float VISION_DISTANCE = 20f;
 
     private HPAStar pathfinder;
     private RoomGenerator roomGenerator;
-    private List<Vector2> currentPath = new List<Vector2>();
+    private List<Vector2> currentPath = new();
     private int currentIndex = 0;
     private float idleTimer = 0;
-    private const float IdleTime = 1.0f;
     private float moveSpeed = 2.25f;
-    private float attackRange = 0.5f; // Distance for melee attack
-    private float attackCooldown = 1.0f; // Time between attacks
     private float attackTimer = 0f;
-    private const float VisionDistance = 20f; // Maximum vision distance
 
     private enum State
     {
@@ -37,7 +37,7 @@ public class RoachAI : Component, IUpdatable
     {
         if (pathfinder == null) return;
 
-        // Always check if we should attack
+        // Check for attack opportunity
         if (ShouldAttackPlayer())
         {
             currentState = State.Attacking;
@@ -72,7 +72,7 @@ public class RoachAI : Component, IUpdatable
         Vector2 direction = Vector2.Normalize(targetPos - Entity.transform.Position);
         Vector2 newPos = Entity.transform.Position + direction * moveSpeed * Settings.fixedDeltaTime;
 
-        // Add wall collision check
+        // Check for wall collision
         if (IsPositionBlocked(newPos))
         {
             currentPath.Clear();
@@ -97,9 +97,8 @@ public class RoachAI : Component, IUpdatable
     private void UpdateIdle()
     {
         idleTimer += Settings.fixedDeltaTime;
-        if (idleTimer >= IdleTime)
+        if (idleTimer >= IDLE_TIME)
         {
-            // Idle time finished - get new target
             GetNewRandomTarget();
             currentState = State.Moving;
         }
@@ -107,7 +106,7 @@ public class RoachAI : Component, IUpdatable
 
     private bool ShouldAttackPlayer()
     {
-        // Always attack if we're already attacking
+        // Already attacking
         if (currentState == State.Attacking) return true;
 
         Vector2 playerPos = Raycaster.playerEntity.transform.Position;
@@ -120,9 +119,11 @@ public class RoachAI : Component, IUpdatable
         if (myRoom != null && playerRoom != null && myRoom == playerRoom) return true;
 
         // Check vision distance
-        if (sqrDist > VisionDistance * VisionDistance) return false;
+        if (sqrDist > VISION_DISTANCE * VISION_DISTANCE) return false;
+
         // Use DDA for line-of-sight check
         Raycaster.RayHit hit = Raycaster.CastDDA(playerPos - myPos, myPos, roomGenerator.intgrid);
+
         // Attack if we have direct line of sight to player
         return !hit.IsHit();
     }
@@ -132,13 +133,15 @@ public class RoachAI : Component, IUpdatable
         Vector2 toPlayer = Raycaster.playerEntity.transform.Position - Entity.transform.Position;
         float distance = toPlayer.Length();
 
-        if (distance > attackRange)
+        if (distance > ATTACK_RANGE)
         {
+            // Move towards player
             Vector2 direction = Vector2.Normalize(toPlayer);
             Vector2 newPos = Entity.transform.Position + direction * moveSpeed * Settings.fixedDeltaTime;
 
             if (IsPathBlocked(Entity.transform.Position, newPos) || IsPositionBlocked(newPos))
             {
+                // Try to find a new path to player
                 if (currentPath.Count == 0 || currentIndex >= currentPath.Count)
                 {
                     currentPath = pathfinder.FindPath(Entity.transform.Position, Raycaster.playerEntity.transform.Position);
@@ -155,18 +158,19 @@ public class RoachAI : Component, IUpdatable
                 Entity.transform.Position = newPos;
             }
         }
-        else //attack when in range
+        else // Attack when in range
         {
             attackTimer += Settings.fixedDeltaTime;
-            if (attackTimer >= attackCooldown)
+            if (attackTimer >= ATTACK_COOLDOWN)
             {
                 attackTimer = 0f;
                 AttackPlayer();
             }
         }
 
-        // Only stop attacking if player is very far
-        if (Vector2.DistanceSquared(Entity.transform.Position, Raycaster.playerEntity.transform.Position) > (VisionDistance * 1.5f) * (VisionDistance * 1.5f))
+        // Stop attacking if player is too far
+        float sqrVisionDistance = VISION_DISTANCE * 1.5f * VISION_DISTANCE * 1.5f;
+        if (Vector2.DistanceSquared(Entity.transform.Position, Raycaster.playerEntity.transform.Position) > sqrVisionDistance)
         {
             currentState = State.Idle;
             idleTimer = 0;
@@ -177,8 +181,9 @@ public class RoachAI : Component, IUpdatable
     private bool IsPositionBlocked(Vector2 position)
     {
         Vector2IntR gridPos = new Vector2IntR(position);
-        if (!roomGenerator.IsWithinGrid(gridPos))
-            return true; // Out of bounds is blocked
+
+        // Out of bounds is blocked
+        if (!roomGenerator.IsWithinGrid(gridPos)) return true;
 
         int tile = roomGenerator.intgrid[gridPos.x, gridPos.y];
 
@@ -192,7 +197,7 @@ public class RoachAI : Component, IUpdatable
             {
                 return !door.isOpen; // Block if door is closed
             }
-            return true; // Block if door not found (shouldn't happen)
+            return true; // Block if door not found
         }
 
         return false; // All other tiles are passable
@@ -232,7 +237,6 @@ public class RoachAI : Component, IUpdatable
 
     private void AttackPlayer()
     {
-        // Damage player
         HealthComponent playerHealth = Raycaster.playerEntity?.healthComponent;
         if (playerHealth != null)
         {
@@ -251,7 +255,7 @@ public class RoachAI : Component, IUpdatable
         if (currentPath.Count == 0)
         {
             currentState = State.Idle;
-            idleTimer = IdleTime - 0.1f; // Try again very soon
+            idleTimer = IDLE_TIME - 0.1f; // Try again very soon
         }
     }
 
@@ -262,7 +266,7 @@ public class RoachAI : Component, IUpdatable
 
         // 70% chance to stay in current room, 30% to move to neighbor room
         Room targetRoom = currentRoom;
-        if (currentRoom.neighbourRooms.Count > 0 && RandomR.value > chanceToStayInRoom)
+        if (currentRoom.neighbourRooms.Count > 0 && RandomR.value > CHANCE_TO_STAY_IN_ROOM)
         {
             // Get random neighbor room
             int randomIndex = RandomR.Range(0, currentRoom.neighbourRooms.Count);
