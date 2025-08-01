@@ -9,7 +9,7 @@ public class RoachAI : Component, IUpdatable
     private const float ATTACK_COOLDOWN = 1.0f;
     private const float VISION_DISTANCE = 20f;
 
-    private HPAStar pathfinder;
+    private AStarPathfinder pathfinder;
     private RoomGenerator roomGenerator;
     private List<Vector2> currentPath = new();
     private int currentIndex = 0;
@@ -26,7 +26,7 @@ public class RoachAI : Component, IUpdatable
 
     private State currentState = State.Moving;
 
-    public void Initialize(HPAStar pathfinder, RoomGenerator roomGenerator)
+    public void Initialize(AStarPathfinder pathfinder, RoomGenerator roomGenerator)
     {
         this.roomGenerator = roomGenerator;
         this.pathfinder = pathfinder;
