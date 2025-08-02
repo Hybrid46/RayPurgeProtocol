@@ -469,7 +469,7 @@ class Raycaster
             // Check boundaries
             if (mapX < 0 || mapX >= map.GetLength(0) || mapY < 0 || mapY >= map.GetLength(1)) break;
 
-            if (!roomGenerator.IsWalkable(new Vector2IntR(mapX,mapY))) hit = true;
+            if (!roomGenerator.IsWalkable(new Vector2IntR(mapX, mapY))) hit = true;
         }
 
         if (hit)
@@ -555,7 +555,7 @@ class Raycaster
 
                     // Check boundaries
                     if (mapX < 0 || mapX >= roomGenerator.objectGrid.GetLength(0) || mapY < 0 || mapY >= roomGenerator.objectGrid.GetLength(1)) break;
-                    if (roomGenerator.objectGrid[mapX, mapY] is not Floor) hit = true;
+                    if (!roomGenerator.IsWalkable(new Vector2IntR(mapX, mapY))) hit = true;
                 }
 
                 if (hit)
@@ -695,7 +695,7 @@ class Raycaster
     {
         RayHit hit = CastDDA(playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid);
 
-        if (hit.IsHit() && roomGenerator.objectGrid[hit.mapX, hit.mapY] is Door door)
+        if (hit.IsHit() && hit.distance < 1f && roomGenerator.objectGrid[hit.mapX, hit.mapY] is Door door)
         {
             door.isOpen = !door.isOpen;
             Console.WriteLine($"Interacting with Door {door.GetHashCode()} -> " + (door.isOpen ? "opened" : "closed"));
