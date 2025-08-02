@@ -78,7 +78,8 @@ class Raycaster
         textures.Add("crosshairs", LoadTexture("Assets/crosshairs_128.png"));
 
         textures.Add("wall", LoadTexture("Assets/wall.png"));
-        textures.Add("door", LoadTexture("Assets/door.png"));
+        textures.Add("door_closed", LoadTexture("Assets/door_closed.png"));
+        textures.Add("door_opened", LoadTexture("Assets/door_opened.png"));
         textures.Add("ceiling", LoadTexture("Assets/ceiling.png", true));
         textures.Add("floor", LoadTexture("Assets/floor.png", true));
 
@@ -467,7 +468,8 @@ class Raycaster
 
             // Check boundaries
             if (mapX < 0 || mapX >= map.GetLength(0) || mapY < 0 || mapY >= map.GetLength(1)) break;
-            if (map[mapX, mapY] is not Floor) hit = true;
+
+            if (!roomGenerator.IsWalkable(new Vector2IntR(mapX,mapY))) hit = true;
         }
 
         if (hit)
@@ -871,7 +873,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position + playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.IsPassable(newPos))
+                roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }
@@ -881,7 +883,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position - playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.IsPassable(newPos))
+                roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }
@@ -891,7 +893,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position + new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.IsPassable(newPos))
+                roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }
@@ -901,7 +903,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position - new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.IsPassable(newPos))
+                roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }

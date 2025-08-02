@@ -113,7 +113,7 @@ public class RoomGenerator
         public bool isOpen;
         public override int Type => 2;
         public override Color minimapColor => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
-        public override string textureName => "door";
+        public override string textureName => isOpen ? "door_opened" : "door_closed";
 
         public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
         {
@@ -523,13 +523,13 @@ public class RoomGenerator
 
     public bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
 
-    public bool IsPassable(Vector2 position)
+    public bool IsWalkable(Vector2 position)
     {
         Vector2IntR gridPos = new Vector2IntR(position);
-        return IsPassable(gridPos);
+        return IsWalkable(gridPos);
     }
 
-    public bool IsPassable(Vector2IntR gridPos)
+    public bool IsWalkable(Vector2IntR gridPos)
     {
         if (objectGrid[gridPos.x, gridPos.y] is Floor) return true;
         if (objectGrid[gridPos.x, gridPos.y] is Door door) return door.isOpen;
