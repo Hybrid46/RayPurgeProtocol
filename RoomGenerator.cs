@@ -112,7 +112,7 @@ public class RoomGenerator
         public Room roomB;
         public bool isOpen;
         public override int Type => 2;
-        public override Color minimapColor => new Color(0, 0, 255, 255);
+        public override Color minimapColor => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
         public override string textureName => "door";
 
         public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
@@ -397,7 +397,17 @@ public class RoomGenerator
                 {
                     for (int j = i + 1; j < adjacentRooms.Count; j++)
                     {
-                        doors.Add(new Door(wall, adjacentRooms[i], adjacentRooms[j], false));
+                        if (!doorSet.Contains(wall))
+                        {
+                            doors.Add(new Door(wall, adjacentRooms[i], adjacentRooms[j], false));
+                        }
+                        else
+                        {
+                            // If door already exists, just link the rooms
+                            Door existingDoor = (Door)objectGrid[wall.x, wall.y];
+                            existingDoor.roomA = adjacentRooms[i];
+                            existingDoor.roomB = adjacentRooms[j];
+                        }
                     }
                 }
 
@@ -512,6 +522,20 @@ public class RoomGenerator
     public bool IsWithinGrid(Vector2IntR pos) => pos.x >= 0 && pos.x < gridWidth && pos.y >= 0 && pos.y < gridHeight;
 
     public bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
+
+    public bool IsPassable(Vector2 position)
+    {
+        Vector2IntR gridPos = new Vector2IntR(position);
+        return IsPassable(gridPos);
+    }
+
+    public bool IsPassable(Vector2IntR gridPos)
+    {
+        if (objectGrid[gridPos.x, gridPos.y] is Floor) return true;
+        if (objectGrid[gridPos.x, gridPos.y] is Door door) return door.isOpen;
+
+        return false;
+    }
 
     public Room GetRoomAtPosition(Vector2 position)
     {

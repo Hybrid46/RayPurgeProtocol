@@ -306,7 +306,6 @@ class Raycaster
         nextEntity:;
         }
 
-        //TODO Sort only visibles
         // Sort Entites by distance (far to near)
         visibleEntities.Sort((a, b) =>
         {
@@ -417,13 +416,6 @@ class Raycaster
         int centerX = screenWidth / 2;
         int centerY = screenHeight / 2;
         Raylib.DrawTexture(textures["crosshairs"], centerX - textures["crosshairs"].Width / 2, centerY - textures["crosshairs"].Height / 2, Color.White);
-    }
-
-    public static bool IsPathBlocked(Vector2 start, Vector2 end, GridObject[,] map)
-    {
-        Vector2 dir = end - start;
-        RayHit hit = CastDDA(dir, start, map);
-        return hit.IsHit() && hit.distance < dir.Length();
     }
 
     public static RayHit CastDDA(Vector2 rayDir, Vector2 position, GridObject[,] map) => CastDDA(rayDir.X, rayDir.Y, position.X, position.Y, map);
@@ -704,6 +696,7 @@ class Raycaster
         if (hit.IsHit() && roomGenerator.objectGrid[hit.mapX, hit.mapY] is Door door)
         {
             door.isOpen = !door.isOpen;
+            Console.WriteLine($"Interacting with Door {door.GetHashCode()} -> " + (door.isOpen ? "opened" : "closed"));
         }
     }
 
@@ -878,7 +871,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position + playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.objectGrid[(int)newPos.X, (int)newPos.Y] is Floor)
+                roomGenerator.IsPassable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }
@@ -888,7 +881,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position - playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.objectGrid[(int)newPos.X, (int)newPos.Y] is Floor)
+                roomGenerator.IsPassable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }
@@ -898,7 +891,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position + new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.objectGrid[(int)newPos.X, (int)newPos.Y] is Floor)
+                roomGenerator.IsPassable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }
@@ -908,7 +901,7 @@ class Raycaster
         {
             Vector2 newPos = playerEntity.transform.Position - new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
-                roomGenerator.objectGrid[(int)newPos.X, (int)newPos.Y] is Floor)
+                roomGenerator.IsPassable(newPos))
             {
                 playerEntity.transform.Position = newPos;
             }
