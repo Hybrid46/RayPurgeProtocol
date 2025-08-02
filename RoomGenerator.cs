@@ -259,40 +259,46 @@ public class RoomGenerator
                     Vector2IntR singleOffset = edge + dir;
                     Vector2IntR doubleOffset = edge + (dir * 2);
 
-                    if (wallSet.Contains(singleOffset) && wallSet.Contains(doubleOffset)) //is double wall?
+                    // Boundary checks
+                    if (!IsWithinGrid(singleOffset)) continue;
+                    if (!IsWithinGrid(doubleOffset)) continue;
+
+                    if (wallSet.Contains(singleOffset) && wallSet.Contains(doubleOffset)) // Double wall detected
                     {
                         HashSet<Vector2IntR> wallNeighbours = new HashSet<Vector2IntR>();
                         HashSet<Room> roomNeighbours = new HashSet<Room>();
 
+                        // Check neighbors of the inner wall (singleOffset)
                         foreach (Vector2IntR singleDir in GetOffsetDirections())
                         {
-                            Vector2IntR singleOffsetNeighbour = singleOffset + singleDir;
+                            Vector2IntR neighbor = singleOffset + singleDir;
+                            if (!IsWithinGrid(neighbor)) continue;
 
-                            if (wallSet.Contains(singleOffsetNeighbour))
-                            {
-                                wallNeighbours.Add(singleOffsetNeighbour);
-                            }
+                            if (wallSet.Contains(neighbor))
+                                wallNeighbours.Add(neighbor);
 
-                            if (roomSet.Contains(singleOffsetNeighbour))
-                            {
-                                roomNeighbours.Add(CoordinateToRoomSlow(singleOffsetNeighbour));
-                            }
+                            if (roomSet.Contains(neighbor))
+                                roomNeighbours.Add(CoordinateToRoomSlow(neighbor));
                         }
 
-                        bool isAttachable = roomNeighbours.Count == 1;
-
-                        if (isAttachable)
+                        // Proceed only if adjacent to one room (current room)
+                        if (roomNeighbours.Count == 1)
                         {
+                            // Update grid: convert wall to floor
+                            grid[singleOffset.x, singleOffset.y] = false;
+                            objectGrid[singleOffset.x, singleOffset.y] = new Floor();
+
+                            // Update room structure
                             room.walls.Remove(singleOffset);
-                            foreach (Vector2IntR wall in wallNeighbours) room.walls.Add(wall);
+                            foreach (Vector2IntR wall in wallNeighbours)
+                                room.walls.Add(wall);
                             room.coords.Add(singleOffset);
+
+                            // Update global sets
                             wallSet.Remove(singleOffset);
                             roomSet.Add(singleOffset);
-
                             removedDoubleWalls.Add(singleOffset);
                         }
-
-                        break;
                     }
                 }
             }
