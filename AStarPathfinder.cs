@@ -78,19 +78,17 @@ public class AStarPathfinder
         // Out of bounds is blocked
         if (!roomGenerator.IsWithinGrid(gridPos)) return true;
 
-        int tile = roomGenerator.intgrid[gridPos.x, gridPos.y];
+        GridObject gridObject = roomGenerator.objectGrid[gridPos.x, gridPos.y];
 
-        // Block walls (tile 1)
-        if (tile == 1) return true;
+        // Block walls
+        if (gridObject is Wall) return true;
 
-        // Block closed doors (tile 2 with isOpen=false)
-        if (tile == 2)
+        // Block closed doors
+        if (gridObject is Door)
         {
-            if (roomGenerator.doorPositionMap.TryGetValue(gridPos, out Door door))
-            {
-                return !door.isOpen; // Block if door is closed
-            }
-            return true; // Block if door not found
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
+            return !(gridObject as Door).isOpen; // Block if door is closed
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
         }
 
         return false; // All other tiles are passable
