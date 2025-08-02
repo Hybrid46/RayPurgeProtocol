@@ -1,13 +1,12 @@
 ﻿using Raylib_cs;
 using System.Numerics;
-using static Settings;
 
 public class RaySpriteRenderer : Component
 {
     public Texture2D Texture { get; set; }
     public Vector2 Position => Entity.transform.Position;
 
-    public void Draw(Entity player, Shader spriteShader)
+    public void Draw(Entity player, Shader spriteShader, int internalScreenWidth, int internalScreenHeight)
     {
         PlayerController playerController = player.playerController;
 

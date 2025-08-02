@@ -330,7 +330,7 @@ class Raycaster
 
         foreach (Entity entity in visibleEntities)
         {
-            entity.raySpriteRenderer.Draw(playerEntity, spriteShader);
+            entity.raySpriteRenderer.Draw(playerEntity, spriteShader, internalScreenWidth, internalScreenHeight);
         }
 
         Raylib.EndBlendMode();
