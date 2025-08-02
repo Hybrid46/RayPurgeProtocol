@@ -48,7 +48,7 @@ class Raycaster
     public static Entity playerEntity { get; private set; } = null;
     public static PlayerController playerController;
 
-    static AStarPathfinder pathfindingSystem;
+    static HPAStar pathfindingSystem;
 
     // Colors
     static Color MapWallColor = new Color(100, 100, 100, 255);
@@ -129,7 +129,7 @@ class Raycaster
         roomGenerator.PrintRoom(0);
         foreach (Room neighbour in roomGenerator.rooms[0].neighbourRooms) roomGenerator.PrintRoom(neighbour);
 
-        pathfindingSystem = new AStarPathfinder(roomGenerator);
+        pathfindingSystem = new HPAStar(roomGenerator);
     }
 
     private static void LoadEnemys()

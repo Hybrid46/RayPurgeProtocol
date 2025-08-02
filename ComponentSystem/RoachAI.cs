@@ -9,7 +9,7 @@ public class RoachAI : Component, IUpdatable
     private const float ATTACK_COOLDOWN = 1.0f;
     private const float VISION_DISTANCE = 20f;
 
-    private AStarPathfinder pathfinder;
+    private HPAStar pathfinder;
     private RoomGenerator roomGenerator;
     private List<Vector2> currentPath = new();
     private int currentIndex = 0;
@@ -24,9 +24,9 @@ public class RoachAI : Component, IUpdatable
         Attacking
     }
 
-    private State currentState = State.Moving;
+    private State currentState = State.Idle;
 
-    public void Initialize(AStarPathfinder pathfinder, RoomGenerator roomGenerator)
+    public void Initialize(HPAStar pathfinder, RoomGenerator roomGenerator)
     {
         this.roomGenerator = roomGenerator;
         this.pathfinder = pathfinder;
@@ -35,8 +35,6 @@ public class RoachAI : Component, IUpdatable
 
     public void Update()
     {
-        if (pathfinder == null) return;
-
         // Check for attack opportunity
         if (ShouldAttackPlayer())
         {
