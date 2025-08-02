@@ -78,8 +78,7 @@ class Raycaster
         textures.Add("crosshairs", LoadTexture("Assets/crosshairs_128.png"));
 
         textures.Add("wall", LoadTexture("Assets/wall.png"));
-        textures.Add("door_closed", LoadTexture("Assets/door_closed.png"));
-        textures.Add("door_opened", LoadTexture("Assets/door_opened.png"));
+        textures.Add("door", LoadTexture("Assets/door.png"));
         textures.Add("ceiling", LoadTexture("Assets/ceiling.png", true));
         textures.Add("floor", LoadTexture("Assets/floor.png", true));
 

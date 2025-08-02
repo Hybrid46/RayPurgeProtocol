@@ -113,7 +113,7 @@ public class RoomGenerator
         public bool isOpen;
         public override int Type => 2;
         public override Color minimapColor => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
-        public override string textureName => isOpen ? "door_opened" : "door_closed";
+        public override string textureName => "door";
 
         public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
         {
