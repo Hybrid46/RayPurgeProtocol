@@ -5,7 +5,6 @@
 ## Gameplay Preview
 
 ![Gameplay GIF](RayPurgeProtocol.gif)
-![Gameplay GIF](RayPurgeProtocol2.gif)
 [Watch Gameplay Video](RayPurgeProtocol.mp4)
 
 Purge Protocol is a retro-style raycaster game inspired by classic first-person shooters like Wolfenstein 3D. Built with C# and Raylib, this project features fast-paced action, enemy AI, and authentic retro visuals with modern rendering techniques.
