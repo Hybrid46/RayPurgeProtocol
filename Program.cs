@@ -217,6 +217,44 @@ class Raycaster
         Raylib.UpdateTexture(depthTexture, depthBytes);
     }
 
+    static void DrawPlayerHealth()
+    {
+        if (playerEntity == null || playerEntity.healthComponent == null) return;
+
+        int barWidth = 200;
+        int barHeight = 20;
+        int posX = 10;
+        int posY = screenHeight - barHeight - 10;  // Positioned at bottom-left
+
+        // Draw background
+        Raylib.DrawRectangle(posX, posY, barWidth, barHeight, new Color(50, 50, 50, 200));
+
+        // Calculate health percentage
+        float healthPercent = (float)playerEntity.healthComponent.CurrentHP / playerEntity.healthComponent.MaxHP;
+        int fillWidth = (int)(barWidth * healthPercent);
+
+        // Gradient color based on health
+        Color fillColor;
+        if (healthPercent > 0.6f)
+            fillColor = new Color(40, 180, 40, 255);  // Healthy green
+        else if (healthPercent > 0.3f)
+            fillColor = new Color(220, 150, 40, 255); // Warning orange
+        else
+            fillColor = new Color(200, 40, 40, 255);  // Danger red
+
+        // Draw health bar with border
+        Raylib.DrawRectangle(posX, posY, fillWidth, barHeight, fillColor);
+        Raylib.DrawRectangleLines(posX, posY, barWidth, barHeight, Color.Black);
+
+        // Draw health text with shadow
+        string healthText = $"HP: {playerEntity.healthComponent.CurrentHP}/{playerEntity.healthComponent.MaxHP}";
+        int textX = posX + 5;  // Left-aligned
+        int textY = posY + (barHeight - 20) / 2;
+
+        Raylib.DrawText(healthText, textX + 1, textY + 1, 20, Color.Black);
+        Raylib.DrawText(healthText, textX, textY, 20, Color.White);
+    }
+
     static void DrawPerformanceMetrics()
     {
         int startX = 10;
@@ -800,6 +838,7 @@ class Raycaster
                 DrawPerformanceMetrics();
                 DrawMinimap();
                 Raylib.DrawFPS(10, 10);
+                DrawPlayerHealth();
                 DrawMouse();
 
                 Raylib.EndDrawing();
@@ -827,6 +866,7 @@ class Raycaster
         HandleKeyboard();
         HandleMouse();
         HandleEntites();
+        PlayerRegeneration();
     }
 
     private static void HandleEntites()
@@ -962,6 +1002,15 @@ class Raycaster
                 // Optional: Play hit sound
                 // Raylib.PlaySound(hitSound);
             }
+        }
+    }
+
+    // Regenerate health over time, TODO -> out of combat regeneration
+    private static void PlayerRegeneration()
+    {
+        if (playerEntity.healthComponent.CurrentHP < playerEntity.healthComponent.MaxHP)
+        {
+            if (RandomR.Range(0f, 1f) > 0.999f) playerEntity.healthComponent.TakeDamage(-1); // Heal 1 HP
         }
     }
 

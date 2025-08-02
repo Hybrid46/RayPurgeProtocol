@@ -11,7 +11,7 @@
 
     public void TakeDamage(int amount)
     {
-        CurrentHP = Math.Max(0, CurrentHP - amount);
+        CurrentHP = Math.Clamp(CurrentHP - amount, 0 , MaxHP);
         if (CurrentHP == 0) Die();
     }
 
