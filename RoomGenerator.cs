@@ -15,19 +15,16 @@ public class RoomGenerator
     public float extraDoorChance = 0.0f;
 
     public bool[,] grid { get; private set; }
-    public int[,] intgrid { get; private set; }
+    public GridObject[,] objectGrid { get; private set; }
     public List<Room> rooms { get; private set; } = new List<Room>();
 
     private HashSet<Vector2IntR> openSet;
     private HashSet<Vector2IntR> wallSet = new HashSet<Vector2IntR>();
     private HashSet<Vector2IntR> roomSet = new HashSet<Vector2IntR>();
     private HashSet<Vector2IntR> doorSet = new HashSet<Vector2IntR>();
-
     private HashSet<Vector2IntR> removedDoubleWalls;
 
-    //TODO store room number on grid as int
     private Dictionary<Vector2IntR, Room> coordToRoomMap;
-    public Dictionary<Vector2IntR, Door> doorPositionMap = new Dictionary<Vector2IntR, Door>();
 
     public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoomSizeX, int minRoomSizeY, int maxRoomSizeY, float extraDoorChance)
     {
@@ -94,12 +91,29 @@ public class RoomGenerator
         }
     }
 
-    public class Door
+    public abstract class GridObject
+    {
+        public abstract int Type { get; }
+        public abstract Color minimapColor { get; }
+        public abstract string textureName { get; }
+    }
+
+    public class Wall : GridObject
+    {
+        public override int Type => 1;
+        public override Color minimapColor => new Color(100, 100, 100, 255);
+        public override string textureName => "wall";
+    }
+
+    public class Door : GridObject
     {
         public Vector2IntR position;
         public Room roomA;
         public Room roomB;
         public bool isOpen;
+        public override int Type => 2;
+        public override Color minimapColor => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
+        public override string textureName => "door";
 
         public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
         {
@@ -108,6 +122,13 @@ public class RoomGenerator
             this.roomB = roomB;
             this.isOpen = isOpen;
         }
+    }
+
+    public class Floor : GridObject
+    {
+        public override int Type => 0;
+        public override Color minimapColor => new Color(30, 30, 30, 255);
+        public override string textureName => "floor";
     }
 
     public void Generate()
@@ -130,7 +151,7 @@ public class RoomGenerator
     private void InitializeGrid()
     {
         grid = new bool[gridWidth, gridHeight];
-        intgrid = new int[gridWidth, gridHeight];
+        objectGrid = new GridObject[gridWidth, gridHeight];
         openSet = new HashSet<Vector2IntR>(gridWidth * gridHeight);
 
         for (int x = 0; x < gridWidth; x++)
@@ -141,13 +162,13 @@ public class RoomGenerator
                 if (x == 0 || y == 0 || x == gridWidth - 1 || y == gridHeight - 1)
                 {
                     grid[x, y] = true;
-                    intgrid[x, y] = 1;
+                    objectGrid[x, y] = new Wall();
                     wallSet.Add(new Vector2IntR(x, y));
                 }
                 else
                 {
                     grid[x, y] = false;
-                    intgrid[x, y] = 0;
+                    objectGrid[x, y] = new Floor();
                     openSet.Add(new Vector2IntR(x, y));
                 }
             }
@@ -171,7 +192,7 @@ public class RoomGenerator
             roomSet.Add(coord);
             rooms.Add(room);
             grid[coord.x, coord.y] = true;
-            intgrid[coord.x, coord.y] = 0;
+            objectGrid[coord.x, coord.y] = new Floor();
             openSet.Remove(coord);
 
             ExpandRoom(coord, width, height, room);
@@ -195,7 +216,7 @@ public class RoomGenerator
                 room.coords.Add(offsetedCoord);
                 roomSet.Add(offsetedCoord);
                 grid[offsetedCoord.x, offsetedCoord.y] = true;
-                intgrid[offsetedCoord.x, offsetedCoord.y] = 0;
+                objectGrid[offsetedCoord.x, offsetedCoord.y] = new Floor();
                 openSet.Remove(offsetedCoord);
             }
         }
@@ -219,7 +240,7 @@ public class RoomGenerator
                 room.walls.Add(wallCoord);
                 wallSet.Add(wallCoord);
                 grid[wallCoord.x, wallCoord.y] = true;
-                intgrid[wallCoord.x, wallCoord.y] = 1;
+                objectGrid[wallCoord.x, wallCoord.y] = new Wall();
                 openSet.Remove(wallCoord);
             }
         }
@@ -238,40 +259,46 @@ public class RoomGenerator
                     Vector2IntR singleOffset = edge + dir;
                     Vector2IntR doubleOffset = edge + (dir * 2);
 
-                    if (wallSet.Contains(singleOffset) && wallSet.Contains(doubleOffset)) //is double wall?
+                    // Boundary checks
+                    if (!IsWithinGrid(singleOffset)) continue;
+                    if (!IsWithinGrid(doubleOffset)) continue;
+
+                    if (wallSet.Contains(singleOffset) && wallSet.Contains(doubleOffset)) // Double wall detected
                     {
                         HashSet<Vector2IntR> wallNeighbours = new HashSet<Vector2IntR>();
                         HashSet<Room> roomNeighbours = new HashSet<Room>();
 
+                        // Check neighbors of the inner wall (singleOffset)
                         foreach (Vector2IntR singleDir in GetOffsetDirections())
                         {
-                            Vector2IntR singleOffsetNeighbour = singleOffset + singleDir;
+                            Vector2IntR neighbor = singleOffset + singleDir;
+                            if (!IsWithinGrid(neighbor)) continue;
 
-                            if (wallSet.Contains(singleOffsetNeighbour))
-                            {
-                                wallNeighbours.Add(singleOffsetNeighbour);
-                            }
+                            if (wallSet.Contains(neighbor))
+                                wallNeighbours.Add(neighbor);
 
-                            if (roomSet.Contains(singleOffsetNeighbour))
-                            {
-                                roomNeighbours.Add(CoordinateToRoomSlow(singleOffsetNeighbour));
-                            }
+                            if (roomSet.Contains(neighbor))
+                                roomNeighbours.Add(CoordinateToRoomSlow(neighbor));
                         }
 
-                        bool isAttachable = roomNeighbours.Count == 1;
-
-                        if (isAttachable)
+                        // Proceed only if adjacent to one room (current room)
+                        if (roomNeighbours.Count == 1)
                         {
+                            // Update grid: convert wall to floor
+                            grid[singleOffset.x, singleOffset.y] = false;
+                            objectGrid[singleOffset.x, singleOffset.y] = new Floor();
+
+                            // Update room structure
                             room.walls.Remove(singleOffset);
-                            foreach (Vector2IntR wall in wallNeighbours) room.walls.Add(wall);
+                            foreach (Vector2IntR wall in wallNeighbours)
+                                room.walls.Add(wall);
                             room.coords.Add(singleOffset);
+
+                            // Update global sets
                             wallSet.Remove(singleOffset);
                             roomSet.Add(singleOffset);
-
                             removedDoubleWalls.Add(singleOffset);
                         }
-
-                        break;
                     }
                 }
             }
@@ -334,13 +361,12 @@ public class RoomGenerator
             Vector2IntR doorPos = d.position;
             doorSet.Add(doorPos);
             wallSet.Remove(doorPos);
-            intgrid[doorPos.x, doorPos.y] = 2;
 
             // Remove wall and add door to each room
             d.roomA.walls.Remove(doorPos);
             d.roomB.walls.Remove(doorPos);
             Door newDoor = new Door(doorPos, d.roomA, d.roomB, false);
-            doorPositionMap.Add(doorPos, newDoor);
+            objectGrid[doorPos.x, doorPos.y] = newDoor;
             d.roomA.doors.Add(newDoor);
             d.roomB.doors.Add(newDoor);
 
@@ -377,7 +403,17 @@ public class RoomGenerator
                 {
                     for (int j = i + 1; j < adjacentRooms.Count; j++)
                     {
-                        doors.Add(new Door(wall, adjacentRooms[i], adjacentRooms[j], false));
+                        if (!doorSet.Contains(wall))
+                        {
+                            doors.Add(new Door(wall, adjacentRooms[i], adjacentRooms[j], false));
+                        }
+                        else
+                        {
+                            // If door already exists, just link the rooms
+                            Door existingDoor = (Door)objectGrid[wall.x, wall.y];
+                            existingDoor.roomA = adjacentRooms[i];
+                            existingDoor.roomB = adjacentRooms[j];
+                        }
                     }
                 }
 
@@ -493,24 +529,27 @@ public class RoomGenerator
 
     public bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
 
-    public Door GetDoorAtPosition(Vector2 position) => GetDoorAtPosition(new Vector2IntR(position));
-    public Door GetDoorAtPosition(Vector2IntR gridPos)
+    public bool IsWalkable(Vector2 position)
     {
-        doorPositionMap.TryGetValue(gridPos, out Door door);
-        return door;
+        Vector2IntR gridPos = new Vector2IntR(position);
+        return IsWalkable(gridPos);
     }
 
-    public Room GetRoomAtPosition(Vector2 position) {
+    public bool IsWalkable(Vector2IntR gridPos)
+    {
+        if (objectGrid[gridPos.x, gridPos.y] is Floor) return true;
+        if (objectGrid[gridPos.x, gridPos.y] is Door door) return door.isOpen;
 
+        return false;
+    }
+
+    public Room GetRoomAtPosition(Vector2 position)
+    {
         Vector2IntR gridPos = new Vector2IntR(position);
+        return GetRoomAtPosition(gridPos);
+    }
 
-        // First check if we're directly on a door
-        if (doorPositionMap.ContainsKey(gridPos))
-        {
-            // Return one of the connected rooms arbitrarily
-            return (position.X - MathF.Truncate(position.X) < 0.5f) ? doorPositionMap[gridPos].roomA : doorPositionMap[gridPos].roomB;
-        }
-
+    public Room GetRoomAtPosition(Vector2IntR gridPos) {
         coordToRoomMap.TryGetValue(gridPos, out Room room);
         return room;
     }
@@ -533,18 +572,6 @@ public class RoomGenerator
         }
 
         return default;
-    }
-
-    public void PrintIntGrid()
-    {
-        for (int y = 0; y < gridHeight; y++)
-        {
-            for (int x = 0; x < gridWidth; x++)
-            {
-                Console.Write(intgrid[x, y] + " ");
-            }
-            Console.WriteLine();
-        }
     }
 
     public void PrintRoom(Room room) => PrintRoom(rooms.IndexOf(room));

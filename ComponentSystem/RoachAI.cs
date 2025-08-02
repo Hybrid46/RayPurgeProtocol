@@ -120,7 +120,7 @@ public class RoachAI : Component, IUpdatable
         if (sqrDist > VISION_DISTANCE * VISION_DISTANCE) return false;
 
         // Use DDA for line-of-sight check
-        Raycaster.RayHit hit = Raycaster.CastDDA(playerPos - myPos, myPos, roomGenerator.intgrid);
+        Raycaster.RayHit hit = Raycaster.CastDDA(playerPos - myPos, myPos, roomGenerator.objectGrid);
 
         // Attack if we have direct line of sight to player
         return !hit.IsHit();
@@ -183,20 +183,13 @@ public class RoachAI : Component, IUpdatable
         // Out of bounds is blocked
         if (!roomGenerator.IsWithinGrid(gridPos)) return true;
 
-        int tile = roomGenerator.intgrid[gridPos.x, gridPos.y];
+        GridObject gridObject = roomGenerator.objectGrid[gridPos.x, gridPos.y];
 
-        // Block walls (tile 1)
-        if (tile == 1) return true;
+        // Block walls
+        if (gridObject is Wall) return true;
 
-        // Block closed doors (tile 2 with isOpen=false)
-        if (tile == 2)
-        {
-            if (roomGenerator.doorPositionMap.TryGetValue(gridPos, out Door door))
-            {
-                return !door.isOpen; // Block if door is closed
-            }
-            return true; // Block if door not found
-        }
+        // Block closed doors
+        if (gridObject is Door door) return !door.isOpen;
 
         return false; // All other tiles are passable
     }
@@ -204,7 +197,7 @@ public class RoachAI : Component, IUpdatable
     private bool IsPathBlocked(Vector2 start, Vector2 end)
     {
         Vector2 dir = end - start;
-        Raycaster.RayHit hit = Raycaster.CastDDA(dir, start, roomGenerator.intgrid);
+        Raycaster.RayHit hit = Raycaster.CastDDA(dir, start, roomGenerator.objectGrid);
         return hit.IsHit() && hit.distance < dir.Length();
     }
 
