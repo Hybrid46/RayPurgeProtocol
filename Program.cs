@@ -281,11 +281,12 @@ class Raycaster
         foreach (Entity entity in entities)
         {
             Room entityRoom = roomGenerator.GetRoomAtPosition(entity.transform.Position);
-
+            float entityDistance = Vector2.Distance(playerEntity.transform.Position, entity.transform.Position);
+            
             // Entity is in the same room as player
             if (playerRoom == entityRoom)
             {
-                visibleEntities.Add(entity);
+                if (entityDistance <= drawDistance) visibleEntities.Add(entity);
                 continue;
             }
 
@@ -294,7 +295,7 @@ class Raycaster
             {
                 if (neighbour == entityRoom)
                 {
-                    visibleEntities.Add(entity);
+                    if (entityDistance <= drawDistance) visibleEntities.Add(entity);
                     goto nextEntity; // Skip to next entity
                 }
 
@@ -303,7 +304,7 @@ class Raycaster
                 {
                     if (neighbourOfNeighbour == entityRoom)
                     {
-                        visibleEntities.Add(entity);
+                        if (entityDistance <= drawDistance) visibleEntities.Add(entity);
                         goto nextEntity; // Skip to next entity
                     }
                 }
@@ -329,8 +330,6 @@ class Raycaster
 
         foreach (Entity entity in visibleEntities)
         {
-            if (Vector2.Distance(playerEntity.transform.Position, entity.transform.Position) > drawDistance) continue;
-
             RaySpriteRenderer sprite = entity.raySpriteRenderer;
 
             if (sprite == null) continue;
