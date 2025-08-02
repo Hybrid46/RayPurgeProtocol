@@ -380,16 +380,13 @@ class Raycaster
         {
             for (int x = 0; x < MAP_SIZE; x++)
             {
-                if (roomGenerator.objectGrid[x, y] is not Floor)
-                {
-                    Raylib.DrawRectangle(
-                        (int)MAP_POS.X + x * MAP_SCALE,
-                        (int)MAP_POS.Y + y * MAP_SCALE,
-                        MAP_SCALE,
-                        MAP_SCALE,
-                        roomGenerator.objectGrid[x, y].minimapColor
-                    );
-                }
+                Raylib.DrawRectangle(
+                    (int)MAP_POS.X + x * MAP_SCALE,
+                    (int)MAP_POS.Y + y * MAP_SCALE,
+                    MAP_SCALE,
+                    MAP_SCALE,
+                    roomGenerator.objectGrid[x, y].minimapColor
+                );
             }
         }
 
