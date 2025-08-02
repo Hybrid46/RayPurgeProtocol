@@ -793,9 +793,10 @@ class Raycaster
             // Fixed timestep updates for game logic
             while (accumulator >= fixedDeltaTime)
             {
-                Stopwatch updateTimer = Stopwatch.StartNew();
-                FixedUpdate();
-                updateTimer.Stop();
+                using (PerformanceMonitor.Measure(t => PerformanceMonitor.fixedUpdateTime = t))
+                {
+                    FixedUpdate();
+                }
 
                 accumulator -= fixedDeltaTime;
                 upsCount++;
@@ -860,12 +861,9 @@ class Raycaster
 
     static void FixedUpdate()
     {
-        using (PerformanceMonitor.Measure(t => PerformanceMonitor.fixedUpdateTime = t))
-        {
-            HandleKeyboard();
-            HandleMouse();
-            HandleEntites();
-        }
+        HandleKeyboard();
+        HandleMouse();
+        HandleEntites();
     }
 
     private static void HandleEntites()
