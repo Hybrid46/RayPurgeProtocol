@@ -44,7 +44,6 @@ class Raycaster
 
     // Player
     public static Entity playerEntity { get; private set; } = null;
-    public static PlayerController playerController;
 
     static HPAStar pathfindingSystem;
 
@@ -184,7 +183,7 @@ class Raycaster
             Position = new Vector2(1.5f, 1.5f)
         });
 
-        playerController = playerEntity.AddComponent(new PlayerController
+        playerEntity.AddComponent(new PlayerController
         {
             MoveSpeed = 5.0f,
             RotationSpeed = 3.0f,
@@ -291,8 +290,8 @@ class Raycaster
 
         // Set shader uniforms
         Raylib.SetShaderValue(floorCeilingShader, playerPosLoc, playerEntity.transform.Position, ShaderUniformDataType.Vec2);
-        Raylib.SetShaderValue(floorCeilingShader, playerDirLoc, playerController.Direction, ShaderUniformDataType.Vec2);
-        Raylib.SetShaderValue(floorCeilingShader, cameraPlaneLoc, playerController.CameraPlane, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, playerDirLoc, playerEntity.playerController.Direction, ShaderUniformDataType.Vec2);
+        Raylib.SetShaderValue(floorCeilingShader, cameraPlaneLoc, playerEntity.playerController.CameraPlane, ShaderUniformDataType.Vec2);
         Raylib.SetShaderValue(floorCeilingShader, screenWidthLoc, (float)internalScreenWidth, ShaderUniformDataType.Float);
         Raylib.SetShaderValue(floorCeilingShader, screenHeightLoc, (float)internalScreenHeight, ShaderUniformDataType.Float);
 
@@ -437,8 +436,8 @@ class Raycaster
 
         // Draw direction line
         Vector2 endPos = new Vector2(
-            playerMapX + playerController.Direction.X * 15,
-            playerMapY + playerController.Direction.Y * 15
+            playerMapX + playerEntity.playerController.Direction.X * 15,
+            playerMapY + playerEntity.playerController.Direction.Y * 15
         );
         Raylib.DrawLine(playerMapX, playerMapY, (int)endPos.X, (int)endPos.Y, Color.White);
 
@@ -547,8 +546,8 @@ class Raycaster
                 // Calculate ray direction with internal width
                 float cameraX = 2 * x / (float)internalScreenWidth - 1;
                 Vector2 rayDir = new Vector2(
-                    playerController.Direction.X + playerController.CameraPlane.X * cameraX,
-                    playerController.Direction.Y + playerController.CameraPlane.Y * cameraX
+                    playerEntity.playerController.Direction.X + playerEntity.playerController.CameraPlane.X * cameraX,
+                    playerEntity.playerController.Direction.Y + playerEntity.playerController.CameraPlane.Y * cameraX
                 );
 
                 // DDA setup
@@ -701,7 +700,7 @@ class Raycaster
 
     private static Entity CastShootingRay(out float hitDistance)
     {
-        hitDistance = CastDDA(playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid).distance; // Distance to wall hit
+        hitDistance = CastDDA(playerEntity.playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid).distance; // Distance to wall hit
 
         Entity hitEnemy = null;
         float closestT = float.MaxValue;
@@ -710,12 +709,12 @@ class Raycaster
         foreach (Entity entity in entities)
         {
             Vector2 toSprite = entity.transform.Position - playerEntity.transform.Position;
-            float t = Vector2.Dot(toSprite, playerController.Direction);
+            float t = Vector2.Dot(toSprite, playerEntity.playerController.Direction);
 
             // Skip if behind player or too close
             if (t < 0.1f) continue;
 
-            Vector2 closestPoint = playerEntity.transform.Position + t * playerController.Direction;
+            Vector2 closestPoint = playerEntity.transform.Position + t * playerEntity.playerController.Direction;
             float distanceSq = Vector2.DistanceSquared(closestPoint, entity.transform.Position);
 
             // Check if within sprite radius and closer than wall
@@ -733,7 +732,7 @@ class Raycaster
 
     private static void Interact()
     {
-        RayHit hit = CastDDA(playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid);
+        RayHit hit = CastDDA(playerEntity.playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid);
 
         if (!hit.IsHit() || hit.distance > interactionDistance) return;
 
@@ -902,20 +901,20 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.D))
         {
             // Rotate left using matrix multiplication
-            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(rotationStep));
-            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(rotationStep));
+            playerEntity.playerController.Direction = Vector2.Transform(playerEntity.playerController.Direction, Matrix3x2.CreateRotation(rotationStep));
+            playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(rotationStep));
         }
 
         if (Raylib.IsKeyDown(KeyboardKey.A))
         {
             // Rotate right using matrix multiplication
-            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(-rotationStep));
-            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(-rotationStep));
+            playerEntity.playerController.Direction = Vector2.Transform(playerEntity.playerController.Direction, Matrix3x2.CreateRotation(-rotationStep));
+            playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(-rotationStep));
         }
 
         if (Raylib.IsKeyDown(KeyboardKey.W))
         {
-            Vector2 newPos = playerEntity.transform.Position + playerController.Direction * moveStep;
+            Vector2 newPos = playerEntity.transform.Position + playerEntity.playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
@@ -925,7 +924,7 @@ class Raycaster
 
         if (Raylib.IsKeyDown(KeyboardKey.S))
         {
-            Vector2 newPos = playerEntity.transform.Position - playerController.Direction * moveStep;
+            Vector2 newPos = playerEntity.transform.Position - playerEntity.playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
@@ -935,7 +934,7 @@ class Raycaster
 
         if (Raylib.IsKeyDown(KeyboardKey.Q))
         {
-            Vector2 newPos = playerEntity.transform.Position + new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
+            Vector2 newPos = playerEntity.transform.Position + new Vector2(playerEntity.playerController.Direction.Y, -playerEntity.playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
@@ -945,7 +944,7 @@ class Raycaster
 
         if (Raylib.IsKeyDown(KeyboardKey.E))
         {
-            Vector2 newPos = playerEntity.transform.Position - new Vector2(playerController.Direction.Y, -playerController.Direction.X) * moveStep;
+            Vector2 newPos = playerEntity.transform.Position - new Vector2(playerEntity.playerController.Direction.Y, -playerEntity.playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
@@ -969,14 +968,14 @@ class Raycaster
 
         if (mouseDelta.X > 0)
         {
-            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(mouseRotationStep));
-            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(mouseRotationStep));
+            playerEntity.playerController.Direction = Vector2.Transform(playerEntity.playerController.Direction, Matrix3x2.CreateRotation(mouseRotationStep));
+            playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(mouseRotationStep));
         }
 
         if (mouseDelta.X < 0)
         {
-            playerController.Direction = Vector2.Transform(playerController.Direction, Matrix3x2.CreateRotation(-mouseRotationStep));
-            playerController.CameraPlane = Vector2.Transform(playerController.CameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
+            playerEntity.playerController.Direction = Vector2.Transform(playerEntity.playerController.Direction, Matrix3x2.CreateRotation(-mouseRotationStep));
+            playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
         }
 
         if (Raylib.IsMouseButtonPressed(MouseButton.Left))
@@ -995,7 +994,7 @@ class Raycaster
                 Texture = textures["electro_bullet"],
             });
             bullet.AddComponent(new BulletHealthComponent(10));
-            bullet.AddComponent(new MovementComponent(playerController.Direction, 10f));
+            bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 10f));
 
             entities.Add(bullet);
 
