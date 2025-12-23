@@ -93,16 +93,26 @@ public class RoomGenerator
 
     public abstract class GridObject
     {
-        public abstract int Type { get; }
-        public abstract Color minimapColor { get; }
-        public abstract string textureName { get; }
+        public int type;
+        public Color minimapColor;
+        public string textureName = string.Empty;
     }
 
     public class Wall : GridObject
     {
-        public override int Type => 1;
-        public override Color minimapColor => new Color(100, 100, 100, 255);
-        public override string textureName => "wall";
+        public Wall()
+        {
+            type = 1;
+            minimapColor = new Color(100, 100, 100, 255);
+            textureName = "wall";
+        }
+
+        public Wall(int type, Color minimapColor, string textureName)
+        {
+            this.type = type;
+            this.minimapColor = minimapColor;
+            this.textureName = textureName;
+        }
     }
 
     public class Door : GridObject
@@ -111,24 +121,76 @@ public class RoomGenerator
         public Room roomA;
         public Room roomB;
         public bool isOpen;
-        public override int Type => 2;
-        public override Color minimapColor => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
-        public override string textureName => "door";
 
         public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
         {
+            type = 2;
+            minimapColor = GetMinimapColor();
+            textureName = "door";
+
             this.position = position;
             this.roomA = roomA;
             this.roomB = roomB;
             this.isOpen = isOpen;
         }
+
+        public Door(int type, Color minimapColor, string textureName, Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
+        {
+            this.type = type;
+            this.minimapColor = minimapColor;
+            this.textureName = textureName;
+
+            this.position = position;
+            this.roomA = roomA;
+            this.roomB = roomB;
+            this.isOpen = isOpen;
+        }
+
+        public void Toggle()
+        {
+            isOpen = !isOpen;
+            minimapColor = GetMinimapColor();
+        }
+
+        private Color GetMinimapColor() => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
     }
 
     public class Floor : GridObject
     {
-        public override int Type => 0;
-        public override Color minimapColor => new Color(30, 30, 30, 255);
-        public override string textureName => "floor";
+        public Floor()
+        {
+            type = 0;
+            minimapColor = new Color(30, 30, 30, 255);
+            textureName = "floor";
+        }
+
+        public Floor(int type, Color minimapColor, string textureName)
+        {
+            this.type = type;
+            this.minimapColor = minimapColor;
+            this.textureName = textureName;
+        }
+    }
+
+    public class Ceiling : GridObject
+    {
+        public float lightIntensity;
+
+        public Ceiling()
+        {
+            type = 0;
+            minimapColor = new Color(30, 30, 30, 255);
+            lightIntensity = 1f;
+            textureName = "ceiling";
+        }
+
+        public Ceiling(int type, Color minimapColor, string textureName, float lightIntensity)
+        {
+            this.type = type;
+            this.minimapColor = minimapColor;
+            this.textureName = textureName;
+            this.lightIntensity = lightIntensity;
+        }
     }
 
     public void Generate()
@@ -549,7 +611,8 @@ public class RoomGenerator
         return GetRoomAtPosition(gridPos);
     }
 
-    public Room GetRoomAtPosition(Vector2IntR gridPos) {
+    public Room GetRoomAtPosition(Vector2IntR gridPos)
+    {
         coordToRoomMap.TryGetValue(gridPos, out Room room);
         return room;
     }
