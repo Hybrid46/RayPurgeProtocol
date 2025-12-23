@@ -60,7 +60,7 @@ class Raycaster
     static Shader spriteShader;
     static Shader floorCeilingShader;
 
-    static int playerPosLoc, playerDirLoc, cameraPlaneLoc, screenWidthLoc, screenHeightLoc;
+    static int playerPosLoc, playerDirLoc, cameraPlaneLoc, screenWidthLoc, screenHeightLoc, depthTexLoc;
 
     //Z depth
     static Texture2D depthTexture;
@@ -68,6 +68,8 @@ class Raycaster
     static float maxZ = 0f;
 
     static RoomGenerator roomGenerator;
+
+    static float interactionDistance = 1.0f;
 
     static void LoadTextures()
     {
@@ -111,6 +113,8 @@ class Raycaster
         cameraPlaneLoc = Raylib.GetShaderLocation(floorCeilingShader, "cameraPlane");
         screenWidthLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenWidth");
         screenHeightLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenHeight");
+
+        depthTexLoc = Raylib.GetShaderLocation(spriteShader, "depthTexture");
     }
 
     static void LoadMap()
@@ -354,8 +358,7 @@ class Raycaster
 
         Raylib.BeginBlendMode(BlendMode.Alpha);
 
-        //Set Depth texture for Sprite shader
-        int depthTexLoc = Raylib.GetShaderLocation(spriteShader, "depthTexture");
+        //Set Depth texture for Sprite shader        
         Raylib.SetShaderValueTexture(spriteShader, depthTexLoc, depthTexture);
 
         foreach (Entity entity in visibleEntities)
@@ -513,8 +516,8 @@ class Raycaster
         {
             // Calculate distance
             float perpWallDist = side == 0 ?
-                (mapX - playerEntity.transform.Position.X + (1 - stepX) * 0.5f) / rayDir.X :
-                (mapY - playerEntity.transform.Position.Y + (1 - stepY) * 0.5f) / rayDir.Y;
+                (mapX - posX + (1 - stepX) * 0.5f) / rayDir.X :
+                (mapY - posY + (1 - stepY) * 0.5f) / rayDir.Y;
 
             perpWallDist = MathF.Abs(perpWallDist);
             perpWallDist = MathF.Max(perpWallDist, 0.01f);
@@ -732,7 +735,9 @@ class Raycaster
     {
         RayHit hit = CastDDA(playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid);
 
-        if (hit.IsHit() && hit.distance < 1f && roomGenerator.objectGrid[hit.mapX, hit.mapY] is Door door)
+        if (!hit.IsHit() || hit.distance > interactionDistance) return;
+
+        if (roomGenerator.objectGrid[hit.mapX, hit.mapY] is Door door)
         {
             door.isOpen = !door.isOpen;
             Console.WriteLine($"Interacting with Door {door.GetHashCode()} -> " + (door.isOpen ? "opened" : "closed"));
