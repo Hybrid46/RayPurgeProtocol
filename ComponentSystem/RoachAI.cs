@@ -176,23 +176,7 @@ public class RoachAI : Component, IUpdatable
         }
     }
 
-    private bool IsPositionBlocked(Vector2 position)
-    {
-        Vector2IntR gridPos = new Vector2IntR(position);
-
-        // Out of bounds is blocked
-        if (!roomGenerator.IsWithinGrid(gridPos)) return true;
-
-        GridObject gridObject = roomGenerator.objectGrid[gridPos.x, gridPos.y];
-
-        // Block walls
-        if (gridObject is Wall) return true;
-
-        // Block closed doors
-        if (gridObject is Door door) return !door.isOpen;
-
-        return false; // All other tiles are passable
-    }
+    private bool IsPositionBlocked(Vector2 position) => !roomGenerator.IsWalkable(position);
 
     private bool IsPathBlocked(Vector2 start, Vector2 end)
     {
