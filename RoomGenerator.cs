@@ -243,7 +243,7 @@ public class RoomGenerator
 
         while (openSet.Count > 0)
         {
-            Vector2IntR coord = GetFirstElementFromHashSet(openSet);
+            Vector2IntR coord = GetElementFromHashSet(openSet);
             int width = Random.Range(minRoomSizeX, maxRoomSizeX + 1);
             int height = Random.Range(minRoomSizeY, maxRoomSizeY + 1);
 
@@ -591,11 +591,7 @@ public class RoomGenerator
 
     public bool IsGridEdge(Vector2IntR pos) => pos.x == 0 || pos.x == gridWidth - 1 || pos.y == 0 || pos.y == gridHeight - 1;
 
-    public bool IsWalkable(Vector2 position)
-    {
-        Vector2IntR gridPos = new Vector2IntR(position);
-        return IsWalkable(gridPos);
-    }
+    public bool IsWalkable(Vector2 position) => IsWalkable(new Vector2IntR(position));
 
     public bool IsWalkable(Vector2IntR gridPos)
     {
@@ -605,11 +601,7 @@ public class RoomGenerator
         return false;
     }
 
-    public Room GetRoomAtPosition(Vector2 position)
-    {
-        Vector2IntR gridPos = new Vector2IntR(position);
-        return GetRoomAtPosition(gridPos);
-    }
+    public Room GetRoomAtPosition(Vector2 position) => GetRoomAtPosition(new Vector2IntR(position));
 
     public Room GetRoomAtPosition(Vector2IntR gridPos)
     {
@@ -627,7 +619,7 @@ public class RoomGenerator
         return null;
     }
 
-    private T GetFirstElementFromHashSet<T>(HashSet<T> hashSet)
+    private T GetElementFromHashSet<T>(HashSet<T> hashSet)
     {
         foreach (T t in hashSet)
         {
