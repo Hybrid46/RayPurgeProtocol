@@ -518,7 +518,7 @@ public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoo
                 {
                     if (!floorTextureIds.ContainsKey(floor.textureName))
                     {
-                        floorTextureIds.Add(floor.textureName, floorTextureIds.Count);
+                        floorTextureIds.Add(floor.textureName, floorTextureIds.Count + 1);
                     }
 
                     int id = floorTextureIds[floor.textureName];
@@ -531,7 +531,7 @@ public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoo
                 {
                     if (!ceilingTextureIds.ContainsKey(ceiling.textureName))
                     {
-                        ceilingTextureIds.Add(ceiling.textureName, ceilingTextureIds.Count);
+                        ceilingTextureIds.Add(ceiling.textureName, ceilingTextureIds.Count + 1);
                     }
 
                     int id = ceilingTextureIds[ceiling.textureName];

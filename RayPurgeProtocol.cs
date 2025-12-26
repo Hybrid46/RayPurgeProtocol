@@ -60,6 +60,7 @@ class Raycaster
     static Shader floorCeilingShader;
 
     static int playerPosLoc, playerDirLoc, cameraPlaneLoc, screenWidthLoc, screenHeightLoc, depthTexLoc;
+    static int floorAtlasTexLoc, ceilingAtlasxTexLoc, floorIndexTexLoc, ceilingIndexTexLoc, camHeightLoc, horizonLoc;
 
     //Z depth
     static Texture2D depthTexture;
@@ -119,6 +120,15 @@ class Raycaster
         screenWidthLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenWidth");
         screenHeightLoc = Raylib.GetShaderLocation(floorCeilingShader, "screenHeight");
 
+        floorAtlasTexLoc = Raylib.GetShaderLocation(floorCeilingShader, "floorTexture");
+        ceilingAtlasxTexLoc = Raylib.GetShaderLocation(floorCeilingShader, "ceilingTexture");
+
+        floorIndexTexLoc = Raylib.GetShaderLocation(floorCeilingShader, "floorIdTex");
+        ceilingIndexTexLoc = Raylib.GetShaderLocation(floorCeilingShader, "ceilingIdTex");
+
+        camHeightLoc = Raylib.GetShaderLocation(floorCeilingShader, "camHeight");
+        horizonLoc = Raylib.GetShaderLocation(floorCeilingShader, "horizon");
+
         depthTexLoc = Raylib.GetShaderLocation(spriteShader, "depthTexture");
     }
 
@@ -148,7 +158,7 @@ class Raycaster
             foreach (var kv in roomGenerator.floorTextureIds)
             {
                 int index = kv.Value;
-                Image img = Raylib.LoadImage($"textures/{kv.Key}.png");
+                Image img = Raylib.LoadImage($"Assets/{kv.Key}.png");
 
                 int x = (index % TilesPerRow) * TEXTURE_SIZE;
                 int y = (index / TilesPerRow) * TEXTURE_SIZE;
@@ -177,7 +187,7 @@ class Raycaster
             foreach (var kv in roomGenerator.ceilingTextureIds)
             {
                 int index = kv.Value;
-                Image img = Raylib.LoadImage($"textures/{kv.Key}.png");
+                Image img = Raylib.LoadImage($"Assets/{kv.Key}.png");
 
                 int x = (index % TilesPerRow) * TEXTURE_SIZE;
                 int y = (index / TilesPerRow) * TEXTURE_SIZE;
@@ -196,6 +206,12 @@ class Raycaster
             ceilingAtlasTextures = Raylib.LoadTextureFromImage(ceilingAtlasImage);
             Raylib.UnloadImage(ceilingAtlasImage);
         }
+
+        Raylib.SetTextureFilter(floorAtlasTextures, TextureFilter.Point);
+        Raylib.SetTextureWrap(floorAtlasTextures, TextureWrap.Clamp);
+
+        Raylib.SetTextureFilter(ceilingAtlasTextures, TextureFilter.Point);
+        Raylib.SetTextureWrap(ceilingAtlasTextures, TextureWrap.Clamp);
     }
 
     private static void LoadEnemys()
@@ -352,6 +368,9 @@ class Raycaster
         Raylib.DrawText($"Min: {minFrameTime:F2} ms", startX, startY + lineHeight * 8, lineHeight, Color.Orange);
         Raylib.DrawText($"Max: {maxFrameTime:F2} ms", startX, startY + lineHeight * 9, lineHeight, Color.Orange);
         Raylib.DrawText($"Avg: {avgFrameTime:F2} ms", startX, startY + lineHeight * 10, lineHeight, Color.Orange);
+
+        //Raylib.DrawTexture(floorAtlasTextures, startX + 500, 10, Color.White);
+        //Raylib.DrawTexture(ceilingAtlasTextures, startX + 500, 250, Color.White);
     }
 
     static void DrawFloorAndCeiling()
@@ -365,9 +384,14 @@ class Raycaster
         Raylib.SetShaderValue(floorCeilingShader, screenWidthLoc, (float)internalScreenWidth, ShaderUniformDataType.Float);
         Raylib.SetShaderValue(floorCeilingShader, screenHeightLoc, (float)internalScreenHeight, ShaderUniformDataType.Float);
 
+        Raylib.SetShaderValue(floorCeilingShader, camHeightLoc, (float)0.5f, ShaderUniformDataType.Float);
+        Raylib.SetShaderValue(floorCeilingShader, horizonLoc, (float)(internalScreenHeight / 2f), ShaderUniformDataType.Float);
+
         // Set textures
-        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "ceilingTexture"), textures["ceiling"]);
-        Raylib.SetShaderValueTexture(floorCeilingShader, Raylib.GetShaderLocation(floorCeilingShader, "floorTexture"), textures["floor"]);
+        Raylib.SetShaderValueTexture(floorCeilingShader, floorAtlasTexLoc, floorAtlasTextures);
+        Raylib.SetShaderValueTexture(floorCeilingShader, ceilingAtlasxTexLoc, ceilingAtlasTextures);
+        Raylib.SetShaderValueTexture(floorCeilingShader, floorIndexTexLoc, roomGenerator.floorIdTex);
+        Raylib.SetShaderValueTexture(floorCeilingShader, ceilingIndexTexLoc, roomGenerator.ceilingIdTex);
 
         // Draw full-screen quad
         Raylib.DrawRectangle(0, 0, internalScreenWidth, internalScreenHeight, Color.White);
