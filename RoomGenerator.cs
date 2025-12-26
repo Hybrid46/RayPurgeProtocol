@@ -1,6 +1,7 @@
-﻿using System.Numerics;
-using Random = RandomR;
+﻿using Raylib_cs;
+using System.Numerics;
 using Color = Raylib_cs.Color;
+using Random = RandomR;
 
 public class RoomGenerator
 {
@@ -26,7 +27,17 @@ public class RoomGenerator
 
     private Dictionary<Vector2IntR, Room> coordToRoomMap;
 
-    public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoomSizeX, int minRoomSizeY, int maxRoomSizeY, float extraDoorChance)
+    // Ceiling/floor texture ID map
+    public Dictionary<string, int> floorTextureIds;
+    public Dictionary<string, int> ceilingTextureIds;
+    private Image floorIdImage;
+    private Image ceilingIdImage;
+
+    public Texture2D floorIdTex;
+    public Texture2D ceilingIdTex;
+//-----------------------------
+
+public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoomSizeX, int minRoomSizeY, int maxRoomSizeY, float extraDoorChance)
     {
         this.gridWidth = gridWidth;
         this.gridHeight = gridHeight;
@@ -298,6 +309,8 @@ public class RoomGenerator
         GenerateDoors();
 
         MapCoordsToRooms();
+
+        GenerateIDTextureMaps();
     }
 
     private void InitializeGrid()
@@ -485,6 +498,55 @@ public class RoomGenerator
                 coordToRoomMap[door.position] = room;
             }
         }
+    }
+
+    private void GenerateIDTextureMaps()
+    {
+        floorTextureIds = new Dictionary<string, int>();
+        ceilingTextureIds = new Dictionary<string, int>();
+        floorIdImage = Raylib.GenImageColor(gridWidth, gridHeight, Color.Black);
+        ceilingIdImage = Raylib.GenImageColor(gridWidth, gridHeight, Color.Black);
+
+        for (int x = 0; x < gridWidth; x++)
+        {
+            for (int y = 0; y < gridHeight; y++)
+            {
+                TileCell cell = tileMap[x, y];
+                Floor floor = cell.GetTile<Floor>();
+
+                if (floor != null)
+                {
+                    if (!floorTextureIds.ContainsKey(floor.textureName))
+                    {
+                        floorTextureIds.Add(floor.textureName, floorTextureIds.Count);
+                    }
+
+                    int id = floorTextureIds[floor.textureName];
+                    Raylib.ImageDrawPixel(ref floorIdImage, x, y, new Color(id, id, id, 255));
+                }
+
+                Ceiling ceiling = cell.GetTile<Ceiling>();
+
+                if (ceiling != null)
+                {
+                    if (!ceilingTextureIds.ContainsKey(ceiling.textureName))
+                    {
+                        ceilingTextureIds.Add(ceiling.textureName, ceilingTextureIds.Count);
+                    }
+
+                    int id = ceilingTextureIds[ceiling.textureName];
+                    Raylib.ImageDrawPixel(ref ceilingIdImage, x, y, new Color(id, id, id, 255));
+                }
+            }
+        }
+
+        floorIdTex = Raylib.LoadTextureFromImage(floorIdImage);
+        ceilingIdTex = Raylib.LoadTextureFromImage(ceilingIdImage);
+
+        Raylib.SetTextureFilter(floorIdTex, TextureFilter.Point);
+        Raylib.SetTextureWrap(floorIdTex, TextureWrap.Clamp);
+        Raylib.SetTextureFilter(ceilingIdTex, TextureFilter.Point);
+        Raylib.SetTextureWrap(ceilingIdTex, TextureWrap.Clamp);
     }
 
     private void GenerateDoors()

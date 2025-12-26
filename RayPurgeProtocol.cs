@@ -70,6 +70,10 @@ class Raycaster
 
     static float interactionDistance = 1.0f;
 
+    // Ceiling and Floor texture arrays
+    public static Texture2D floorAtlasTextures;
+    public static Texture2D ceilingAtlasTextures;
+
     static void LoadTextures()
     {
         renderTarget = Raylib.LoadRenderTexture(internalScreenWidth, internalScreenHeight);
@@ -81,7 +85,9 @@ class Raycaster
         textures.Add("wall", LoadTexture("Assets/wall.png"));
         textures.Add("door", LoadTexture("Assets/door.png"));
         textures.Add("ceiling", LoadTexture("Assets/ceiling.png", true));
+        textures.Add("ceiling2", LoadTexture("Assets/ceiling2.png", true));
         textures.Add("floor", LoadTexture("Assets/floor.png", true));
+        textures.Add("floor2", LoadTexture("Assets/floor2.png", true));
 
         textures.Add("roach_red", LoadTexture("Assets/roach_red.png"));
         textures.Add("roach_blue", LoadTexture("Assets/roach_blue.png"));
@@ -120,12 +126,76 @@ class Raycaster
     {
         roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, 0f);
         roomGenerator.Generate();
+        GenerateFloorCeilingAtlasTextures();
 
         //Debug the starting room
         roomGenerator.PrintRoom(0);
         foreach (Room neighbour in roomGenerator.rooms[0].neighbourRooms) roomGenerator.PrintRoom(neighbour);
 
         pathfindingSystem = new HPAStar(roomGenerator);
+
+        void GenerateFloorCeilingAtlasTextures()
+        {
+            const int TilesPerRow = 16;
+
+            // Floor atlas
+            Image floorAtlasImage = Raylib.GenImageColor(
+                TEXTURE_SIZE * TilesPerRow,
+                TEXTURE_SIZE * TilesPerRow,
+                Color.Blank
+            );
+
+            foreach (var kv in roomGenerator.floorTextureIds)
+            {
+                int index = kv.Value;
+                Image img = Raylib.LoadImage($"textures/{kv.Key}.png");
+
+                int x = (index % TilesPerRow) * TEXTURE_SIZE;
+                int y = (index / TilesPerRow) * TEXTURE_SIZE;
+
+                Raylib.ImageDraw(
+                    ref floorAtlasImage,
+                    img,
+                    new Rectangle(0, 0, TEXTURE_SIZE, TEXTURE_SIZE),
+                    new Rectangle(x, y, TEXTURE_SIZE, TEXTURE_SIZE),
+                    Color.White
+                );
+
+                Raylib.UnloadImage(img);
+            }
+
+            floorAtlasTextures = Raylib.LoadTextureFromImage(floorAtlasImage);
+            Raylib.UnloadImage(floorAtlasImage);
+
+            //Ceiling atlas
+            Image ceilingAtlasImage = Raylib.GenImageColor(
+                TEXTURE_SIZE * TilesPerRow,
+                TEXTURE_SIZE * TilesPerRow,
+                Color.Blank
+            );
+
+            foreach (var kv in roomGenerator.ceilingTextureIds)
+            {
+                int index = kv.Value;
+                Image img = Raylib.LoadImage($"textures/{kv.Key}.png");
+
+                int x = (index % TilesPerRow) * TEXTURE_SIZE;
+                int y = (index / TilesPerRow) * TEXTURE_SIZE;
+
+                Raylib.ImageDraw(
+                    ref ceilingAtlasImage,
+                    img,
+                    new Rectangle(0, 0, TEXTURE_SIZE, TEXTURE_SIZE),
+                    new Rectangle(x, y, TEXTURE_SIZE, TEXTURE_SIZE),
+                    Color.White
+                );
+
+                Raylib.UnloadImage(img);
+            }
+
+            ceilingAtlasTextures = Raylib.LoadTextureFromImage(ceilingAtlasImage);
+            Raylib.UnloadImage(ceilingAtlasImage);
+        }
     }
 
     private static void LoadEnemys()
