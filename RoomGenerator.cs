@@ -15,7 +15,7 @@ public class RoomGenerator
     public float extraDoorChance = 0.0f;
 
     public bool[,] grid { get; private set; }
-    public GridObject[,] objectGrid { get; private set; }
+    public TileCell[,] tileMap { get; private set; }
     public List<Room> rooms { get; private set; } = new List<Room>();
 
     private HashSet<Vector2IntR> openSet;
@@ -91,53 +91,145 @@ public class RoomGenerator
         }
     }
 
-    public abstract class GridObject
+    public class TileCell
+    {
+        public Dictionary<Type, Tile> tiles = new Dictionary<Type, Tile>(4);
+        public bool isWalkable = true;
+
+        public T GetTile<T>() where T : Tile
+        {
+            Type tileType = typeof(T);
+
+            if (tiles.TryGetValue(tileType, out Tile tile))
+            {
+                return (T)tile;
+            }
+
+            //Console.WriteLine($"TileCell does not contain tile of type {typeof(T).Name}!");
+            return null;
+        }
+
+        public bool HasTile<T>() where T : Tile
+        {
+            return tiles.ContainsKey(typeof(T));
+        }
+
+        public void SetTile<T>(T newTile) where T : Tile
+        {
+            RemoveTile<T>();
+            AddTile(newTile);
+        }
+
+        public bool RemoveTile<T>() where T : Tile
+        {
+            Type tileType = typeof(T);
+            bool removed = tiles.Remove(tileType);
+            isWalkable = IsWalkable();
+
+            return removed;
+        }
+
+        public void AddTile<T>(T newTile) where T : Tile
+        {
+            Type tileType = typeof(T);
+
+            if (!tiles.ContainsKey(tileType))
+            {
+                tiles[tileType] = newTile;
+            }
+            else
+            {
+                Console.WriteLine("TileCell already contains tile of type " + typeof(T).Name);
+            }
+
+            UpdateWalkable(newTile);
+        }
+
+        public void ToggleDoor()
+        {
+            Door door = GetTile<Door>();
+
+            if (door == null) return;
+
+            door.Toggle();
+            isWalkable = !isWalkable;
+        }
+
+        private void UpdateWalkable<T>(T tile) where T : Tile
+        {
+            if (tile is Wall) isWalkable = false;
+            else if (tile is Door door && !door.isOpen) isWalkable = false;
+        }
+
+        private bool IsWalkable()
+        {
+            foreach (Tile tile in tiles.Values)
+            {
+                if (tile is Door door && !door.isOpen) return false;
+                if (tile is Wall) return false;
+            }
+            return true;
+        }
+
+        public Color GetMinimapColor()
+        {
+            if (tiles.ContainsKey(typeof(Door)))
+            {
+                Door door = GetTile<Door>();
+                return door.GetMinimapColor();
+            }
+            else if (tiles.ContainsKey(typeof(Wall)))
+            {
+                return Wall.minimapColor;
+            }
+            else if (tiles.ContainsKey(typeof(Floor)))
+            {
+                return Floor.minimapColor;
+            }
+            else if (tiles.ContainsKey(typeof(Ceiling)))
+            {
+                return Ceiling.minimapColor;
+            }
+            else
+            {
+                return new Color(255, 0, 255, 255); // Magenta for undefined
+            }
+        }
+    }
+
+    public abstract class Tile
     {
         public int type;
-        public Color minimapColor;
         public string textureName = string.Empty;
     }
 
-    public class Wall : GridObject
+    public class Wall : Tile
     {
+        public static Color minimapColor = new Color(100, 100, 100, 255);
+
         public Wall()
         {
             type = 1;
-            minimapColor = new Color(100, 100, 100, 255);
             textureName = "wall";
         }
 
-        public Wall(int type, Color minimapColor, string textureName)
+        public Wall(string textureName)
         {
-            this.type = type;
-            this.minimapColor = minimapColor;
+            type = 1;
             this.textureName = textureName;
         }
     }
 
-    public class Door : GridObject
+    public class Door : Tile
     {
         public Vector2IntR position;
         public Room roomA;
         public Room roomB;
-        public bool isOpen;
+        public bool isOpen { get; private set; }
 
-        public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
+        public Door(Vector2IntR position, Room roomA, Room roomB, bool isOpen = false, string textureName = "door")
         {
             type = 2;
-            minimapColor = GetMinimapColor();
-            textureName = "door";
-
-            this.position = position;
-            this.roomA = roomA;
-            this.roomB = roomB;
-            this.isOpen = isOpen;
-        }
-
-        public Door(int type, Color minimapColor, string textureName, Vector2IntR position, Room roomA, Room roomB, bool isOpen = false)
-        {
-            this.type = type;
-            this.minimapColor = minimapColor;
             this.textureName = textureName;
 
             this.position = position;
@@ -149,45 +241,43 @@ public class RoomGenerator
         public void Toggle()
         {
             isOpen = !isOpen;
-            minimapColor = GetMinimapColor();
         }
 
-        private Color GetMinimapColor() => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
+        public Color GetMinimapColor() => isOpen ? new Color(0, 0, 150, 255) : new Color(0, 0, 255, 255);
     }
 
-    public class Floor : GridObject
+    public class Floor : Tile
     {
+        public static Color minimapColor = new Color(30, 30, 30, 255);
+
         public Floor()
         {
             type = 0;
-            minimapColor = new Color(30, 30, 30, 255);
-            textureName = "floor";
+            textureName = RandomBool() ? "floor" : "floor2";
         }
 
-        public Floor(int type, Color minimapColor, string textureName)
+        public Floor(string textureName)
         {
-            this.type = type;
-            this.minimapColor = minimapColor;
+            type = 0;
             this.textureName = textureName;
         }
     }
 
-    public class Ceiling : GridObject
+    public class Ceiling : Tile
     {
+        public static Color minimapColor = new Color(30, 30, 30, 255);
         public float lightIntensity;
 
         public Ceiling()
         {
             type = 0;
-            minimapColor = new Color(30, 30, 30, 255);
             lightIntensity = 1f;
-            textureName = "ceiling";
+            textureName = RandomBool() ? "ceiling" : "ceiling2";
         }
 
-        public Ceiling(int type, Color minimapColor, string textureName, float lightIntensity)
+        public Ceiling(string textureName, float lightIntensity = 1f)
         {
-            this.type = type;
-            this.minimapColor = minimapColor;
+            type = 0;
             this.textureName = textureName;
             this.lightIntensity = lightIntensity;
         }
@@ -213,24 +303,27 @@ public class RoomGenerator
     private void InitializeGrid()
     {
         grid = new bool[gridWidth, gridHeight];
-        objectGrid = new GridObject[gridWidth, gridHeight];
+        tileMap = new TileCell[gridWidth, gridHeight];
         openSet = new HashSet<Vector2IntR>(gridWidth * gridHeight);
 
         for (int x = 0; x < gridWidth; x++)
         {
             for (int y = 0; y < gridHeight; y++)
             {
+                tileMap[x, y] = new TileCell();
+
                 //is edge? -> generate a border wall
                 if (x == 0 || y == 0 || x == gridWidth - 1 || y == gridHeight - 1)
                 {
                     grid[x, y] = true;
-                    objectGrid[x, y] = new Wall();
+                    tileMap[x, y].AddTile(new Wall());
                     wallSet.Add(new Vector2IntR(x, y));
                 }
                 else
                 {
                     grid[x, y] = false;
-                    objectGrid[x, y] = new Floor();
+                    tileMap[x, y].AddTile(new Floor());
+                    tileMap[x, y].AddTile(new Ceiling());
                     openSet.Add(new Vector2IntR(x, y));
                 }
             }
@@ -254,7 +347,8 @@ public class RoomGenerator
             roomSet.Add(coord);
             rooms.Add(room);
             grid[coord.x, coord.y] = true;
-            objectGrid[coord.x, coord.y] = new Floor();
+            tileMap[coord.x, coord.y].AddTile(new Floor());
+            tileMap[coord.x, coord.y].AddTile(new Ceiling());
             openSet.Remove(coord);
 
             ExpandRoom(coord, width, height, room);
@@ -278,7 +372,8 @@ public class RoomGenerator
                 room.coords.Add(offsetedCoord);
                 roomSet.Add(offsetedCoord);
                 grid[offsetedCoord.x, offsetedCoord.y] = true;
-                objectGrid[offsetedCoord.x, offsetedCoord.y] = new Floor();
+                tileMap[offsetedCoord.x, offsetedCoord.y].AddTile(new Floor());
+                tileMap[offsetedCoord.x, offsetedCoord.y].AddTile(new Ceiling());
                 openSet.Remove(offsetedCoord);
             }
         }
@@ -302,7 +397,7 @@ public class RoomGenerator
                 room.walls.Add(wallCoord);
                 wallSet.Add(wallCoord);
                 grid[wallCoord.x, wallCoord.y] = true;
-                objectGrid[wallCoord.x, wallCoord.y] = new Wall();
+                tileMap[wallCoord.x, wallCoord.y].AddTile(new Wall());
                 openSet.Remove(wallCoord);
             }
         }
@@ -348,7 +443,9 @@ public class RoomGenerator
                         {
                             // Update grid: convert wall to floor
                             grid[singleOffset.x, singleOffset.y] = false;
-                            objectGrid[singleOffset.x, singleOffset.y] = new Floor();
+                            tileMap[singleOffset.x, singleOffset.y].RemoveTile<Wall>();
+                            tileMap[singleOffset.x, singleOffset.y].AddTile(new Floor());
+                            tileMap[singleOffset.x, singleOffset.y].AddTile(new Ceiling());
 
                             // Update room structure
                             room.walls.Remove(singleOffset);
@@ -428,7 +525,8 @@ public class RoomGenerator
             d.roomA.walls.Remove(doorPos);
             d.roomB.walls.Remove(doorPos);
             Door newDoor = new Door(doorPos, d.roomA, d.roomB, false);
-            objectGrid[doorPos.x, doorPos.y] = newDoor;
+            tileMap[doorPos.x, doorPos.y].RemoveTile<Wall>();
+            tileMap[doorPos.x, doorPos.y].AddTile(newDoor);
             d.roomA.doors.Add(newDoor);
             d.roomB.doors.Add(newDoor);
 
@@ -472,7 +570,7 @@ public class RoomGenerator
                         else
                         {
                             // If door already exists, just link the rooms
-                            Door existingDoor = (Door)objectGrid[wall.x, wall.y];
+                            Door existingDoor = tileMap[wall.x, wall.y].GetTile<Door>();
                             existingDoor.roomA = adjacentRooms[i];
                             existingDoor.roomB = adjacentRooms[j];
                         }
@@ -593,13 +691,7 @@ public class RoomGenerator
 
     public bool IsWalkable(Vector2 position) => IsWalkable(new Vector2IntR(position));
 
-    public bool IsWalkable(Vector2IntR gridPos)
-    {
-        if (objectGrid[gridPos.x, gridPos.y] is Floor) return true;
-        if (objectGrid[gridPos.x, gridPos.y] is Door door) return door.isOpen;
-
-        return false;
-    }
+    public bool IsWalkable(Vector2IntR gridPos) => tileMap[gridPos.x, gridPos.y].isWalkable;
 
     public Room GetRoomAtPosition(Vector2 position) => GetRoomAtPosition(new Vector2IntR(position));
 
@@ -630,6 +722,8 @@ public class RoomGenerator
     }
 
     public void PrintRoom(Room room) => PrintRoom(rooms.IndexOf(room));
+
+    private static bool RandomBool() => Random.Range(0f, 1f) > 0.5f;
 
     public void PrintRoom(int index)
     {

@@ -78,20 +78,7 @@ public class AStarPathfinder
         // Out of bounds is blocked
         if (!roomGenerator.IsWithinGrid(gridPos)) return true;
 
-        GridObject gridObject = roomGenerator.objectGrid[gridPos.x, gridPos.y];
-
-        // Block walls
-        if (gridObject is Wall) return true;
-
-        // Block closed doors
-        if (gridObject is Door)
-        {
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
-            return !(gridObject as Door).isOpen; // Block if door is closed
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
-        }
-
-        return false; // All other tiles are passable
+        return !roomGenerator.tileMap[gridPos.x, gridPos.y].isWalkable;
     }
 
     private float Heuristic(Vector2IntR a, Vector2IntR b)

@@ -151,7 +151,7 @@ class Raycaster
                         _ => textures["roach_red"]
                     };
 
-                    if (roomGenerator.objectGrid[pos.x, pos.y] is not Floor) continue; // Only spawn on empty tiles
+                    if (!roomGenerator.tileMap[pos.x, pos.y].isWalkable) continue; // Only spawn on walkable tiles
 
                     Vector2 startPosition = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
                     entities.Add(CreateRoach(roachTexture, startPosition, randomRoachTextureIndex));
@@ -411,7 +411,7 @@ class Raycaster
     static void DrawMinimap()
     {
         const int MAP_SCALE = 5;
-        int MAP_SIZE = roomGenerator.objectGrid.GetLength(0);
+        int MAP_SIZE = roomGenerator.tileMap.GetLength(0);
         Vector2 MAP_POS = new Vector2(screenWidth - MAP_SIZE * MAP_SCALE - 10, 10);
 
         // Draw map tiles
@@ -424,7 +424,7 @@ class Raycaster
                     (int)MAP_POS.Y + y * MAP_SCALE,
                     MAP_SCALE,
                     MAP_SCALE,
-                    roomGenerator.objectGrid[x, y].minimapColor
+                    roomGenerator.tileMap[x, y].GetMinimapColor()
                 );
             }
         }
@@ -458,8 +458,8 @@ class Raycaster
         Raylib.DrawTexture(textures["crosshairs"], centerX - textures["crosshairs"].Width / 2, centerY - textures["crosshairs"].Height / 2, Color.White);
     }
 
-    public static RayHit CastDDA(Vector2 rayDir, Vector2 position, GridObject[,] map) => CastDDA(rayDir.X, rayDir.Y, position.X, position.Y, map);
-    public static RayHit CastDDA(float rayDirX, float rayDirY, float posX, float posY, GridObject[,] map)
+    public static RayHit CastDDA(Vector2 rayDir, Vector2 position, TileCell[,] map) => CastDDA(rayDir.X, rayDir.Y, position.X, position.Y, map);
+    public static RayHit CastDDA(float rayDirX, float rayDirY, float posX, float posY, TileCell[,] map)
     {
         Vector2 rayDir = new Vector2(rayDirX, rayDirY);
 
@@ -593,7 +593,7 @@ class Raycaster
                     }
 
                     // Check boundaries
-                    if (mapX < 0 || mapX >= roomGenerator.objectGrid.GetLength(0) || mapY < 0 || mapY >= roomGenerator.objectGrid.GetLength(1)) break;
+                    if (mapX < 0 || mapX >= roomGenerator.tileMap.GetLength(0) || mapY < 0 || mapY >= roomGenerator.tileMap.GetLength(1)) break;
                     if (!roomGenerator.IsWalkable(new Vector2IntR(mapX, mapY))) hit = true;
                 }
 
@@ -667,8 +667,32 @@ class Raycaster
                         drawEnd - drawStart
                     );
 
+                    TileCell cell = roomGenerator.tileMap[mapX, mapY];
+                    string textureName;
+
+                    // Try to get a Wall tile first
+                    Wall wallTile = cell.GetTile<Wall>();
+                    if (wallTile != null)
+                    {
+                        textureName = wallTile.textureName;
+                    }
+                    else
+                    {
+                        // If the cell contains a Door, use its texture
+                        Door doorTile = cell.GetTile<Door>();
+                        if (doorTile != null)
+                        {
+                            textureName = doorTile.textureName;      // e.g. "door"
+                        }
+                        else
+                        {
+                            // Fallback – should never happen, but protects against bugs
+                            textureName = "wall";
+                        }
+                    }
+
                     Raylib.DrawTexturePro(
-                        textures[roomGenerator.objectGrid[mapX, mapY].textureName],
+                        textures[textureName],
                         srcRect,
                         destRect,
                         Vector2.Zero,
@@ -700,7 +724,7 @@ class Raycaster
 
     private static Entity CastShootingRay(out float hitDistance)
     {
-        hitDistance = CastDDA(playerEntity.playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid).distance; // Distance to wall hit
+        hitDistance = CastDDA(playerEntity.playerController.Direction, playerEntity.transform.Position, roomGenerator.tileMap).distance; // Distance to wall hit
 
         Entity hitEnemy = null;
         float closestT = float.MaxValue;
@@ -732,13 +756,14 @@ class Raycaster
 
     private static void Interact()
     {
-        RayHit hit = CastDDA(playerEntity.playerController.Direction, playerEntity.transform.Position, roomGenerator.objectGrid);
+        RayHit hit = CastDDA(playerEntity.playerController.Direction, playerEntity.transform.Position, roomGenerator.tileMap);
 
         if (!hit.IsHit() || hit.distance > interactionDistance) return;
 
-        if (roomGenerator.objectGrid[hit.mapX, hit.mapY] is Door door)
+        Door door = roomGenerator.tileMap[hit.mapX, hit.mapY].GetTile<Door>();
+        if (door != null)
         {
-            door.isOpen = !door.isOpen;
+            roomGenerator.tileMap[hit.mapX, hit.mapY].ToggleDoor();
             Console.WriteLine($"Interacting with Door {door.GetHashCode()} -> " + (door.isOpen ? "opened" : "closed"));
         }
     }
@@ -915,7 +940,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.W))
         {
             Vector2 newPos = playerEntity.transform.Position + playerEntity.playerController.Direction * moveStep;
-            if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
+            if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;
@@ -925,7 +950,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.S))
         {
             Vector2 newPos = playerEntity.transform.Position - playerEntity.playerController.Direction * moveStep;
-            if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
+            if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;
@@ -935,7 +960,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.Q))
         {
             Vector2 newPos = playerEntity.transform.Position + new Vector2(playerEntity.playerController.Direction.Y, -playerEntity.playerController.Direction.X) * moveStep;
-            if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
+            if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;
@@ -945,7 +970,7 @@ class Raycaster
         if (Raylib.IsKeyDown(KeyboardKey.E))
         {
             Vector2 newPos = playerEntity.transform.Position - new Vector2(playerEntity.playerController.Direction.Y, -playerEntity.playerController.Direction.X) * moveStep;
-            if (newPos.X >= 0 && newPos.X < roomGenerator.objectGrid.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.objectGrid.GetLength(1) &&
+            if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
                 roomGenerator.IsWalkable(newPos))
             {
                 playerEntity.transform.Position = newPos;

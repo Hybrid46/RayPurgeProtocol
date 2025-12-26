@@ -120,7 +120,7 @@ public class RoachAI : Component, IUpdatable
         if (sqrDist > VISION_DISTANCE * VISION_DISTANCE) return false;
 
         // Use DDA for line-of-sight check
-        Raycaster.RayHit hit = Raycaster.CastDDA(playerPos - myPos, myPos, roomGenerator.objectGrid);
+        Raycaster.RayHit hit = Raycaster.CastDDA(playerPos - myPos, myPos, roomGenerator.tileMap);
 
         // Attack if we have direct line of sight to player
         return !hit.IsHit();
@@ -181,7 +181,7 @@ public class RoachAI : Component, IUpdatable
     private bool IsPathBlocked(Vector2 start, Vector2 end)
     {
         Vector2 dir = end - start;
-        Raycaster.RayHit hit = Raycaster.CastDDA(dir, start, roomGenerator.objectGrid);
+        Raycaster.RayHit hit = Raycaster.CastDDA(dir, start, roomGenerator.tileMap);
         return hit.IsHit() && hit.distance < dir.Length();
     }
 
