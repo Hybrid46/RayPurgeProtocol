@@ -25,14 +25,13 @@ void main()
     float cameraX = 2.0 * screenPos.x - 1.0;
     vec2 rayDir = playerDir + cameraPlane * cameraX;
 
-    // ---- Floor / Ceiling ----
+    // ---- Is Floor / Ceiling ----
     float horizonY = screenHeight * 0.5;
     bool isCeiling = flippedY < horizonY;
 
     float yOffset = abs(flippedY - horizonY);
     yOffset = max(yOffset, 0.0001);
 
-    // ✅ KEEP THIS — THIS IS WHY YOUR UVs WORK
     float distanceToPlane = horizonY / yOffset;
 
     // ---- World position ----
@@ -52,10 +51,9 @@ void main()
     int layer = int(idNorm * 255.0);
     if (layer == 0) discard;
 
-    // ---- Local UV (UNCHANGED SCALE) ----
+    // ---- Atlas UV ----
     vec2 localUV = fract(worldPos);
 
-    // ---- Atlas UV ----
     int col = layer % TilesPerRow;
     int row = layer / TilesPerRow;
 
@@ -63,8 +61,7 @@ void main()
     vec2 tileSize = atlasSize / float(TilesPerRow);
 
     vec2 pixelUV = vec2(col, row) * tileSize
-                 + localUV * tileSize
-                 + vec2(0.5);
+                 + localUV * tileSize;
 
     vec2 uv = pixelUV / atlasSize;
 
@@ -73,9 +70,15 @@ void main()
         ? texture(ceilingTexture, uv)
         : texture(floorTexture, uv);
 
-    // ---- Distance shading (same feel as before) ----
+    // ---- Distance shading ----
     float shade = clamp(1.0 - distanceToPlane * 0.03, 0.3, 1.0);
     color.rgb *= shade;
 
     finalColor = color;
+
+    // Debugs
+    // finalColor = vec4(fract(worldPos), 0, 1);
+    // finalColor = vec4(localUV.xy,0,1);
+    // finalColor = vec4(pixelUV.xy,0,1);
+    // finalColor = vec4(uv.xy,0,1);
 }
