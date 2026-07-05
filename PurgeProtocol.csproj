@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="raylib-cs" Version="7.0.1" />
+    <PackageReference Include="raylib-cs" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
