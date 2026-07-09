@@ -33,7 +33,7 @@ public class RaySpriteRenderer : Component
         int drawStartY = Math.Clamp(internalScreenHeight / 2 - spriteHeight / 2, 0, internalScreenHeight);
         int drawEndY = Math.Clamp(internalScreenHeight / 2 + spriteHeight / 2, 0, internalScreenHeight);
 
-        // Set shader uniforms          
+        // Set shader uniforms
         int depthLoc = Raylib.GetShaderLocation(spriteShader, "spriteDepth");
         Raylib.SetShaderValue(spriteShader, depthLoc, transformY, ShaderUniformDataType.Float);
 

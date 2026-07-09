@@ -4,6 +4,7 @@ using Raylib_cs;
 using Color = Raylib_cs.Color;
 using static Settings;
 using static RoomGenerator;
+using PurgeProtocol.ComponentSystem;
 
 class Raycaster
 {
@@ -237,10 +238,23 @@ class Raycaster
                         _ => textures["roach_red"]
                     };
 
+                    Color roachColor = randomRoachTextureIndex switch
+                    {
+                        0 => Color.Green,
+                        1 => Color.Blue,
+                        2 => Color.Red,
+                        _ => Color.Red,
+                    };
+
                     if (!roomGenerator.tileMap[pos.x, pos.y].isWalkable) continue; // Only spawn on walkable tiles
 
                     Vector2 startPosition = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
-                    entities.Add(CreateRoach(roachTexture, startPosition, randomRoachTextureIndex));
+                    Entity roach = CreateRoach(roachTexture, startPosition, randomRoachTextureIndex);
+
+                    LightEmitter roachLight = new LightEmitter(5, 5, roachColor);
+                    roach.AddComponent(roachLight);
+
+                    entities.Add(roach);
                 }
             }
         }
@@ -277,6 +291,9 @@ class Raycaster
         });
 
         playerEntity.AddComponent(new HealthComponent(10));
+
+        LightEmitter playerLight = new LightEmitter(10, 10, Color.White);
+        playerEntity.AddComponent(playerLight);
     }
 
     //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
@@ -451,7 +468,7 @@ class Raycaster
 
         Raylib.BeginBlendMode(BlendMode.Alpha);
 
-        //Set Depth texture for Sprite shader        
+        //Set Depth texture for Sprite shader
         Raylib.SetShaderValueTexture(spriteShader, depthTexLoc, depthTexture);
 
         foreach (Entity entity in visibleEntities)
@@ -880,6 +897,9 @@ class Raycaster
         double lastTime = gameTimer.Elapsed.TotalSeconds;
         double currentTime = lastTime;
 
+        RC2DGI gi = new RC2DGI();
+        gi.Initialize();
+
         LoadTextures();
         LoadShaders();
         LoadMap();
@@ -957,7 +977,34 @@ class Raycaster
                     Color.White
                 );
 
+                // Draw GI
+                List<Rectangle> absorbers = new List<Rectangle>(roomGenerator.gridWidth * roomGenerator.gridHeight);
+
+                foreach (Room room in roomGenerator.rooms)
+                {
+                    foreach (Vector2IntR wallPosition in room.walls)
+                    {
+                        absorbers.Add(new Rectangle(wallPosition, new Vector2(20, 20))); // size is relative to 1000 (texture size) / 50 (grid size)
+                    }
+                }
+
+                List<LightEmitter> lightEmitters = new List<LightEmitter>(200);
+                foreach (Entity entity in entities)
+                {
+                    LightEmitter emitter = entity.GetComponent<LightEmitter>();
+                    if (emitter != null) lightEmitters.Add(emitter);
+                }
+
+                Raylib.EndDrawing();
+                gi.Update(absorbers, lightEmitters);
+
+                // TODO Project GI to screen render texture
+
+                //--------------------------------------
+
                 // Draw minimap and performance metrics
+                Raylib.BeginDrawing();
+
                 DrawPerformanceMetrics();
                 DrawMinimap();
                 Raylib.DrawFPS(10, 10);
@@ -980,6 +1027,8 @@ class Raycaster
         {
             Raylib.UnloadTexture(texture.Value);
         }
+
+        gi.Dispose();
 
         Raylib.CloseWindow();
     }
