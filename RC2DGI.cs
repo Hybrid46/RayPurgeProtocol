@@ -115,8 +115,6 @@ public class RC2DGI
         DoRC2DGI();
 
         // 3. Display final
-        Raylib.BeginDrawing();
-        Raylib.ClearBackground(Color.Black);
 
         // Draw main scene
         Raylib.DrawTextureRec(colorRT.Texture,
@@ -135,8 +133,6 @@ public class RC2DGI
         DrawDebugTexture(giRT1, new Vector2(startX, padding * 5 + debugSize * 4), debugSize, "GI1");
         DrawDebugTexture(giRT2, new Vector2(startX, padding * 6 + debugSize * 5), debugSize, "GI2");
         DrawDebugTexture(tempRT, new Vector2(startX, padding * 7 + debugSize * 6), debugSize, "temp");
-
-        Raylib.EndDrawing();
     }
 
     public void Dispose()

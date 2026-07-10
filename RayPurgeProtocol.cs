@@ -995,7 +995,6 @@ class Raycaster
                     if (emitter != null) lightEmitters.Add(emitter);
                 }
 
-                Raylib.EndDrawing();
                 gi.Update(absorbers, lightEmitters);
 
                 // TODO Project GI to screen render texture
@@ -1003,8 +1002,6 @@ class Raycaster
                 //--------------------------------------
 
                 // Draw minimap and performance metrics
-                Raylib.BeginDrawing();
-
                 DrawPerformanceMetrics();
                 DrawMinimap();
                 Raylib.DrawFPS(10, 10);
