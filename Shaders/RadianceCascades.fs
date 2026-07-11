@@ -17,11 +17,6 @@ uniform vec2 _CascadeResolution;  // resolution used for cascades (width, height
 uniform int _CascadeLevel;        // current cascade level (int)
 uniform int _CascadeCount;        // total number of cascades
 
-uniform float _SkyRadiance;
-uniform vec3 _SkyColor;
-uniform vec3 _SunColor;
-uniform float _SunAngle;
-
 uniform float _Reflectivity;
 
 const float TAU = 6.28318530718;
@@ -43,17 +38,6 @@ vec2 CalculateRayRange(int index, int count)
     int end = (1 << (index * 2 + 2)) - 1;
     vec2 r = vec2(float(start), float(end)) / float(maxValue);
     return r * _RayRange;
-}
-
-vec3 SampleSkyRadiance(float a0, float a1)
-{
-    // Sky integral formula from "Analytic Direct Illumination"
-    const float SSunS = 8.0;
-    const float ISSunS = 1.0 / SSunS;
-
-    vec3 SI = _SkyColor * (a1 - a0 - 0.5 * (cos(a1) - cos(a0)));
-    SI += _SunColor * (atan(SSunS * (_SunAngle - a0)) - atan(SSunS * (_SunAngle - a1))) * ISSunS;
-    return SI * 0.16;
 }
 
 // Ray-marching over SDF stored in _DistanceTex, color in _ColorTex
@@ -124,8 +108,6 @@ void main()
 
         if (radiance.a != 0.0)
         {
-            if (_CascadeLevel != (_CascadeCount - 1))
-            {
                 // Merging with the Upper Cascade (_MainTex)
                 // position logic from original shader
                 vec2 position = coordsInBlock * 0.5 + 0.25;
@@ -145,13 +127,6 @@ void main()
 
                 radiance.rgb += rad.rgb * radiance.a;
                 radiance.a *= rad.a;
-            }
-            else
-            {
-                // top cascade: merge with sky radiance
-                vec3 sky = SampleSkyRadiance(angle, angle + angleStep) * _SkyRadiance;
-                radiance.rgb += (sky / angleStep) * 2.0;
-            }
         }
 
         finalResult += radiance * 0.25;

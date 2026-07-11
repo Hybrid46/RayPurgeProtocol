@@ -5,8 +5,8 @@ using System.Numerics;
 public class RC2DGI
 {
     // ---------- Config ----------
-    const int Width = 1000;
-    const int Height = 1000;
+    public static readonly int Width = 1000;
+    public static readonly int Height = 1000;
 
     // ---------- Shaders ----------
     private Shader screenUV_shader;
@@ -86,10 +86,10 @@ public class RC2DGI
         Raylib.BeginTextureMode(colorRT);
         foreach (Rectangle rectangle in absorbers)
         {
-            Raylib.DrawRectangle((int)rectangle.Center.X,
-                                 (int)rectangle.Center.Y,
-                                 (int)rectangle.Width,
-                                 (int)rectangle.Height,
+            Raylib.DrawRectangle((int)rectangle.Center.X * 20,
+                                 (int)rectangle.Center.Y * 20,
+                                 (int)rectangle.Width * 20,
+                                 (int)rectangle.Height * 20,
                                  Color.White);
         }
         Raylib.EndTextureMode();
@@ -102,11 +102,11 @@ public class RC2DGI
 
             if (lightEmitter.isCircle)
             {
-                Raylib.DrawCircleV(position, lightEmitter.radius, lightEmitter.color);
+                Raylib.DrawCircleV(position * 20f, lightEmitter.radius * 20f, lightEmitter.color);
             }
             else
             {
-                Raylib.DrawRectangle((int)position.X, (int)position.Y, lightEmitter.width, lightEmitter.height, lightEmitter.color);
+                Raylib.DrawRectangle((int)position.X * 20, (int)position.Y * 20, lightEmitter.width * 20, lightEmitter.height * 20, lightEmitter.color);
             }
         }
         Raylib.EndTextureMode();

@@ -251,7 +251,7 @@ class Raycaster
                     Vector2 startPosition = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
                     Entity roach = CreateRoach(roachTexture, startPosition, randomRoachTextureIndex);
 
-                    LightEmitter roachLight = new LightEmitter(5, 5, roachColor);
+                    LightEmitter roachLight = new LightEmitter(1, 1, roachColor);
                     roach.AddComponent(roachLight);
 
                     entities.Add(roach);
@@ -292,7 +292,7 @@ class Raycaster
 
         playerEntity.AddComponent(new HealthComponent(10));
 
-        LightEmitter playerLight = new LightEmitter(10, 10, Color.White);
+        LightEmitter playerLight = new LightEmitter(1, 1, Color.White);
         playerEntity.AddComponent(playerLight);
     }
 
@@ -984,7 +984,7 @@ class Raycaster
                 {
                     foreach (Vector2IntR wallPosition in room.walls)
                     {
-                        absorbers.Add(new Rectangle(wallPosition, new Vector2(20, 20))); // size is relative to 1000 (texture size) / 50 (grid size)
+                        absorbers.Add(new Rectangle(wallPosition, new Vector2(1, 1))); // size is relative to 1000 (texture size) / 50 (grid size)
                     }
                 }
 
