@@ -13,6 +13,10 @@ uniform vec2 cameraPlane;
 uniform float screenWidth;
 uniform float screenHeight;
 
+// GI
+uniform sampler2D giTexture;
+uniform vec2 gridSize;
+
 const int TilesPerRow = 16;
 
 void main()
@@ -74,7 +78,19 @@ void main()
     float shade = clamp(1.0 - distanceToPlane * 0.03, 0.3, 1.0);
     color.rgb *= shade;
 
-    finalColor = color;
+    vec2 giUV = vec2(worldPos.x / gridSize.x, 1.0 - worldPos.y / gridSize.y);
+    vec3 radiance = texture(giTexture, giUV).rgb;
+
+    finalColor = color; // WORKS seeing color only, no GI
+    finalColor = vec4(min(color.rgb * radiance, 1.0), color.a); // NOT WORKS i see color only, no GI -> GI should be multiplied to the smapled floor ceiling texture as lighting, but it is not working, i see only the color of the floor ceiling texture, no GI lighting applied
+    finalColor = vec4(radiance, 1); // WORKS, seeing GI only
+
+    // float lum = dot(radiance, vec3(0.299, 0.587, 0.114));
+    // finalColor = vec4(vec3(lum), 1.0);
+
+    // vec3 linearColor = pow(color.rgb, vec3(2.2));
+    // vec3 result = min(linearColor * radiance, 1.0);
+    // finalColor = vec4(pow(result, vec3(1.0/2.2)), color.a);
 
     // Debugs
     // finalColor = vec4(fract(worldPos), 0, 1);

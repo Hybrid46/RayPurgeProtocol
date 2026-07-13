@@ -62,6 +62,8 @@ class Raycaster
 
     static int playerPosLoc, playerDirLoc, cameraPlaneLoc, screenWidthLoc, screenHeightLoc, depthTexLoc;
     static int floorAtlasTexLoc, ceilingAtlasxTexLoc, floorIndexTexLoc, ceilingIndexTexLoc, camHeightLoc, horizonLoc;
+    // GI
+    static int giTexLoc ,gridSizeLoc;
 
     //Z depth
     static Texture2D depthTexture;
@@ -131,6 +133,9 @@ class Raycaster
         horizonLoc = Raylib.GetShaderLocation(floorCeilingShader, "horizon");
 
         depthTexLoc = Raylib.GetShaderLocation(spriteShader, "depthTexture");
+
+        giTexLoc = Raylib.GetShaderLocation(floorCeilingShader, "giTexture");
+        gridSizeLoc = Raylib.GetShaderLocation(floorCeilingShader, "gridSize");
     }
 
     static void LoadMap()
@@ -390,7 +395,7 @@ class Raycaster
         //Raylib.DrawTexture(ceilingAtlasTextures, startX + 500, 250, Color.White);
     }
 
-    static void DrawFloorAndCeiling()
+    static void DrawFloorAndCeiling(RC2DGI gi)
     {
         Raylib.BeginShaderMode(floorCeilingShader);
 
@@ -409,6 +414,9 @@ class Raycaster
         Raylib.SetShaderValueTexture(floorCeilingShader, ceilingAtlasxTexLoc, ceilingAtlasTextures);
         Raylib.SetShaderValueTexture(floorCeilingShader, floorIndexTexLoc, roomGenerator.floorIdTex);
         Raylib.SetShaderValueTexture(floorCeilingShader, ceilingIndexTexLoc, roomGenerator.ceilingIdTex);
+
+        Raylib.SetShaderValueTexture(floorCeilingShader, giTexLoc, gi.GIRadiance.Texture);
+        Raylib.SetShaderValue(floorCeilingShader, gridSizeLoc, new Vector2(roomGenerator.gridWidth, roomGenerator.gridHeight), ShaderUniformDataType.Vec2);
 
         // Draw full-screen quad
         Raylib.DrawRectangle(0, 0, internalScreenWidth, internalScreenHeight, Color.White);
@@ -640,11 +648,11 @@ class Raycaster
         }
     }
 
-    static void CastRays()
+    static void CastRays(RC2DGI gi)
     {
         Raylib.BeginTextureMode(renderTarget);
 
-        DrawFloorAndCeiling();
+        DrawFloorAndCeiling(gi);
 
         // Reset z-buffer
         Array.Fill(zBuffer, 10000f);
@@ -959,7 +967,29 @@ class Raycaster
             if (accumulator < fixedDeltaTime * 3)
             {
                 // Update the 3D view - this is rendering, not logic
-                CastRays();
+                CastRays(gi);
+
+                // GI
+                List<Rectangle> absorbers = new List<Rectangle>(roomGenerator.gridWidth * roomGenerator.gridHeight);
+
+                foreach (Room room in roomGenerator.rooms)
+                {
+                    foreach (Vector2IntR wallPosition in room.walls)
+                    {
+                        absorbers.Add(new Rectangle(wallPosition, new Vector2(1, 1))); // size is relative to 1000 (texture size) / 50 (grid size)
+                    }
+                }
+
+                List<LightEmitter> lightEmitters = new List<LightEmitter>(200);
+                foreach (Entity entity in entities)
+                {
+                    LightEmitter emitter = entity.GetComponent<LightEmitter>();
+                    if (emitter != null) lightEmitters.Add(emitter);
+                }
+                lightEmitters.Add(playerEntity.GetComponent<LightEmitter>());
+
+                gi.Update(absorbers, lightEmitters);
+                //--------------------------------------
 
                 // Drawing
                 Raylib.BeginDrawing();
@@ -977,29 +1007,7 @@ class Raycaster
                     Color.White
                 );
 
-                // Draw GI
-                List<Rectangle> absorbers = new List<Rectangle>(roomGenerator.gridWidth * roomGenerator.gridHeight);
-
-                foreach (Room room in roomGenerator.rooms)
-                {
-                    foreach (Vector2IntR wallPosition in room.walls)
-                    {
-                        absorbers.Add(new Rectangle(wallPosition, new Vector2(1, 1))); // size is relative to 1000 (texture size) / 50 (grid size)
-                    }
-                }
-
-                List<LightEmitter> lightEmitters = new List<LightEmitter>(200);
-                foreach (Entity entity in entities)
-                {
-                    LightEmitter emitter = entity.GetComponent<LightEmitter>();
-                    if (emitter != null) lightEmitters.Add(emitter);
-                }
-
-                gi.Update(absorbers, lightEmitters);
-
-                // TODO Project GI to screen render texture
-
-                //--------------------------------------
+                gi.DisplayGI();
 
                 // Draw minimap and performance metrics
                 DrawPerformanceMetrics();

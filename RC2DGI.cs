@@ -25,13 +25,15 @@ public class RC2DGI
     private RenderTexture2D tempRT;
     private RenderTexture2D cascadeBlurRT;
 
+    public RenderTexture2D GIRadiance { get; private set; }
+
     // GI Config
     private int cascadeCount;
     private float renderScale;
     private float rayRange;
     private Vector2IntR cascadeResolution;
     private float cascadeBlurRadius = 1.5f;
-    private float reflectivity = 0.0f;
+    private float reflectivity = 0.5f;
 
     public void Initialize()
     {
@@ -62,6 +64,7 @@ public class RC2DGI
         giRT2 = Raylib.LoadRenderTexture(cascadeResolution.x, cascadeResolution.y);
         tempRT = Raylib.LoadRenderTexture(Width, Height);
         cascadeBlurRT = Raylib.LoadRenderTexture(cascadeResolution.x, cascadeResolution.y);
+        GIRadiance = giRT1;
 
         Raylib.SetTextureFilter(emissiveRT.Texture, TextureFilter.Point);
         Raylib.SetTextureFilter(colorRT.Texture, TextureFilter.Point);
@@ -81,9 +84,9 @@ public class RC2DGI
     {
         ClearAllRTs();
 
-        // 1. Scene render
-        // Absorbers
+        // Scene render
         Raylib.BeginTextureMode(colorRT);
+        // Absorbers
         foreach (Rectangle rectangle in absorbers)
         {
             Raylib.DrawRectangle((int)rectangle.Center.X * 20,
@@ -92,17 +95,14 @@ public class RC2DGI
                                  (int)rectangle.Height * 20,
                                  Color.White);
         }
-        Raylib.EndTextureMode();
 
-        // Emitters
-        Raylib.BeginTextureMode(emissiveRT);
         foreach (LightEmitter lightEmitter in lightEmitters)
         {
             Vector2 position = lightEmitter.Entity.transform.Position;
 
             if (lightEmitter.isCircle)
             {
-                Raylib.DrawCircleV(position * 20f, lightEmitter.radius * 20f, lightEmitter.color);
+                Raylib.DrawCircleV(position * 20, lightEmitter.radius * 20, lightEmitter.color);
             }
             else
             {
@@ -111,11 +111,30 @@ public class RC2DGI
         }
         Raylib.EndTextureMode();
 
-        // 2. RC2DGI pipeline
+        // Emitters
+        Raylib.BeginTextureMode(emissiveRT);
+        Raylib.ClearBackground(new Color(0, 0, 0, 0));
+        foreach (LightEmitter lightEmitter in lightEmitters)
+        {
+            Vector2 position = lightEmitter.Entity.transform.Position;
+
+            if (lightEmitter.isCircle)
+            {
+                Raylib.DrawCircleV(position * 20, lightEmitter.radius * 20, lightEmitter.color);
+            }
+            else
+            {
+                Raylib.DrawRectangle((int)position.X * 20, (int)position.Y * 20, lightEmitter.width * 20, lightEmitter.height * 20, lightEmitter.color);
+            }
+        }
+        Raylib.EndTextureMode();
+
+        // RC2DGI pipeline
         DoRC2DGI();
+    }
 
-        // 3. Display final
-
+    public void DisplayGI()
+    {
         // Draw main scene
         Raylib.DrawTextureRec(colorRT.Texture,
             new Rectangle(0, 0, colorRT.Texture.Width, -colorRT.Texture.Height),
@@ -146,6 +165,7 @@ public class RC2DGI
         Raylib.UnloadRenderTexture(giRT2);
         Raylib.UnloadRenderTexture(tempRT);
         Raylib.UnloadRenderTexture(cascadeBlurRT);
+        Raylib.UnloadRenderTexture(GIRadiance);
 
         Raylib.UnloadShader(screenUV_shader);
         Raylib.UnloadShader(jumpFlood_shader);
@@ -179,7 +199,6 @@ public class RC2DGI
         //Start JumpFlood Algorithm
         jumpFlood1IsFinal = true;
         int max = (int)Math.Max(screen.X, screen.Y);
-        //int steps = Mathf.CeilToInt(Mathf.Log(max)); -> Unity original
         int steps = (int)Math.Ceiling(Math.Log(max, 2.0));
         if (steps < 1) steps = 1;
 
@@ -278,6 +297,8 @@ public class RC2DGI
             Raylib.EndTextureMode();
         }
 
+        GIRadiance = finalGI;
+
         // ---- 6. Merge blurred GI with scene ----
         Raylib.BeginTextureMode(tempRT);
         Raylib.BeginShaderMode(GIBlitter_shader);
@@ -294,7 +315,6 @@ public class RC2DGI
             new Rectangle(0, 0, tempRT.Texture.Width, -tempRT.Texture.Height),
             Vector2.Zero, Color.White);
         Raylib.EndTextureMode();
-
     }
 
     private void SetGIShaderValues(Vector2 aspect, int cascadeLevel)
