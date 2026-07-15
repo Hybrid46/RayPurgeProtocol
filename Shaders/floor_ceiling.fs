@@ -82,7 +82,8 @@ void main()
     vec3 radiance = texture(giTexture, giUV).rgb;
 
     finalColor = color; // WORKS seeing color only, no GI
-    finalColor = vec4(min(color.rgb * radiance, 1.0), color.a); // NOT WORKS i see color only, no GI -> GI should be multiplied to the smapled floor ceiling texture as lighting, but it is not working, i see only the color of the floor ceiling texture, no GI lighting applied
+    finalColor = vec4(min(color.rgb + radiance, 1), 1); // not working, original merge
+    finalColor = vec4(color.rgb * radiance, 1); // NOT WORKS i see color only, no GI -> GI should be multiplied to the smapled floor ceiling texture as lighting, but it is not working, i see only the color of the floor ceiling texture, no GI lighting applied
     finalColor = vec4(radiance, 1); // WORKS, seeing GI only
 
     // float lum = dot(radiance, vec3(0.299, 0.587, 0.114));
