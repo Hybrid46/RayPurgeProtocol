@@ -297,6 +297,8 @@ public class RC2DGI
             Raylib.EndTextureMode();
         }
 
+        GIRadiance = finalGI;
+
         // ---- 6. Merge blurred GI with scene ----
         Raylib.BeginTextureMode(tempRT);
         Raylib.BeginShaderMode(GIBlitter_shader);
@@ -309,12 +311,11 @@ public class RC2DGI
 
         // Copy back to colorRT
         Raylib.BeginTextureMode(colorRT);
+        Raylib.ClearBackground(Color.Black);
         Raylib.DrawTextureRec(tempRT.Texture,
             new Rectangle(0, 0, tempRT.Texture.Width, -tempRT.Texture.Height),
             Vector2.Zero, Color.White);
         Raylib.EndTextureMode();
-
-        GIRadiance = colorRT;
     }
 
     private void SetGIShaderValues(Vector2 aspect, int cascadeLevel)

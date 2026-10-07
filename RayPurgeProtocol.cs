@@ -651,6 +651,7 @@ class Raycaster
     static void CastRays(RC2DGI gi)
     {
         Raylib.BeginTextureMode(renderTarget);
+        Raylib.ClearBackground(Color.Black);
 
         DrawFloorAndCeiling(gi);
 
@@ -966,9 +967,6 @@ class Raycaster
             // Only render if we're not running behind on updates
             if (accumulator < fixedDeltaTime * 3)
             {
-                // Update the 3D view - this is rendering, not logic
-                CastRays(gi);
-
                 // GI
                 List<Rectangle> absorbers = new List<Rectangle>(roomGenerator.gridWidth * roomGenerator.gridHeight);
 
@@ -991,6 +989,9 @@ class Raycaster
                 gi.Update(absorbers, lightEmitters);
                 //--------------------------------------
 
+                // Update the 3D view - this is rendering, not logic
+                CastRays(gi);
+
                 // Drawing
                 Raylib.BeginDrawing();
                 Raylib.ClearBackground(Color.Black);
@@ -1007,7 +1008,8 @@ class Raycaster
                     Color.White
                 );
 
-                gi.DisplayGI();
+                // for debug on minimap
+                //gi.DisplayGI();
 
                 // Draw minimap and performance metrics
                 DrawPerformanceMetrics();
