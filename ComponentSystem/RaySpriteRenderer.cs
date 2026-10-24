@@ -38,7 +38,7 @@ public class RaySpriteRenderer : Component
         Raylib.SetShaderValue(spriteShader, depthLoc, transformY, ShaderUniformDataType.Float);
 
         //Sprite lighting
-        float lightingFactor = Math.Clamp(1.0f - transformY * 0.03f, 0.3f, 1.0f);
+        float lightingFactor = Math.Clamp(1.0f - transformY * 0.2f, 0.1f, 1.0f);
         int lightingColorLoc = Raylib.GetShaderLocation(spriteShader, "lightingFactor");
         Raylib.SetShaderValue(spriteShader, lightingColorLoc, lightingFactor, ShaderUniformDataType.Float);
 

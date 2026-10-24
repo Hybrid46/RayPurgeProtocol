@@ -71,7 +71,7 @@ void main()
         : texture(floorTexture, uv);
 
     // ---- Distance shading ----
-    float shade = clamp(1.0 - distanceToPlane * 0.03, 0.3, 1.0);
+    float shade = clamp(1.0 - distanceToPlane * 0.1, 0.3, 1.0);
     color.rgb *= shade;
 
     finalColor = color;

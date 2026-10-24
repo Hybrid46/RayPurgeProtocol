@@ -238,19 +238,16 @@ class Raycaster
             {
                 if (RandomR.value < spawnChance)
                 {
-                    int randomRoachTextureIndex = RandomR.Range(0, 3);
-
-                    Texture2D roachTexture = textures["scarecrow"];
-
                     if (!roomGenerator.tileMap[pos.x, pos.y].isWalkable) continue; // Only spawn on walkable tiles
-
+                    int difficulty = RandomR.Range(0, 2);
+                    Texture2D texture = textures["scarecrow"];
                     Vector2 startPosition = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
-                    entities.Add(CreateRoach(roachTexture, startPosition, randomRoachTextureIndex));
+                    entities.Add(CreateRoach(texture, startPosition, difficulty));
                 }
             }
         }
 
-        Console.WriteLine($"Loaded {entities.Count} roaches");
+        Console.WriteLine($"Loaded {entities.Count} scarecrows");
 
         Entity CreateRoach(Texture2D sprite, Vector2 startPosition, int difficulty)
         {
@@ -742,7 +739,7 @@ class Raycaster
                         texX = TEXTURE_SIZE - texX - 1;
 
                     // Shading factors
-                    float shade = Math.Clamp(1.0f - perpWallDist * 0.03f, 0.3f, 1.0f);
+                    float shade = Math.Clamp(1.0f - perpWallDist * 0.1f, 0.2f, 1.0f);
                     float darken = side == 1 ? 0.6f : 1.0f;
                     Color tint = new Color(
                         (byte)(255 * shade * darken),
