@@ -83,18 +83,29 @@ class Raycaster
         textures.Add("checkerBoard", LoadTexture("Assets/CheckerBoard.png"));
         textures.Add("crosshairs", LoadTexture("Assets/crosshairs_128.png"));
 
-        textures.Add("wall", LoadTexture("Assets/wall.png"));
-        textures.Add("door", LoadTexture("Assets/door.png"));
-        textures.Add("ceiling", LoadTexture("Assets/ceiling.png", true));
-        textures.Add("ceiling2", LoadTexture("Assets/ceiling2.png", true));
-        textures.Add("floor", LoadTexture("Assets/floor.png", true));
-        textures.Add("floor2", LoadTexture("Assets/floor2.png", true));
+        //original
+        //textures.Add("wall", LoadTexture("Assets/wall.png"));
+        //textures.Add("door", LoadTexture("Assets/door.png"));
+        //textures.Add("ceiling", LoadTexture("Assets/ceiling.png", true));
+        //textures.Add("ceiling2", LoadTexture("Assets/ceiling2.png", true));
+        //textures.Add("floor", LoadTexture("Assets/floor.png", true));
+        //textures.Add("floor2", LoadTexture("Assets/floor2.png", true));
 
-        textures.Add("roach_red", LoadTexture("Assets/roach_red.png"));
-        textures.Add("roach_blue", LoadTexture("Assets/roach_blue.png"));
-        textures.Add("roach_green", LoadTexture("Assets/roach_green.png"));
+        //textures.Add("roach_red", LoadTexture("Assets/roach_red.png"));
+        //textures.Add("roach_blue", LoadTexture("Assets/roach_blue.png"));
+        //textures.Add("roach_green", LoadTexture("Assets/roach_green.png"));
 
-        textures.Add("electro_bullet", LoadTexture("Assets/electro_bullet.png"));
+        //textures.Add("electro_bullet", LoadTexture("Assets/electro_bullet.png"));
+
+        //halloween mod
+        textures.Add("scarecrow", LoadTexture("Assets/dungeon/scarecrow.png"));
+        textures.Add("wall", LoadTexture("Assets/dungeon/dungeon_wall1.png"));
+        textures.Add("door", LoadTexture("Assets/dungeon/dungeon_door2.png"));
+        textures.Add("ceiling", LoadTexture("Assets/dungeon/dungeon_ceiling1.png", true));
+        textures.Add("ceiling2", LoadTexture("Assets/dungeon/dungeon_ceiling2.png", true));
+        textures.Add("floor", LoadTexture("Assets/dungeon/dungeon_floor1.png", true));
+        textures.Add("floor2", LoadTexture("Assets/dungeon/dungeon_floor2.png", true));
+        textures.Add("electro_bullet", LoadTexture("Assets/dungeon/fire_ball.png"));
 
         Texture2D LoadTexture(string path, bool repeat = false)
         {
@@ -158,7 +169,7 @@ class Raycaster
             foreach (var kv in roomGenerator.floorTextureIds)
             {
                 int index = kv.Value;
-                Image img = Raylib.LoadImage($"Assets/{kv.Key}.png");
+                Image img = Raylib.LoadImage($"Assets/dungeon/dungeon_{kv.Key}.png");
 
                 int x = (index % TilesPerRow) * TEXTURE_SIZE;
                 int y = (index / TilesPerRow) * TEXTURE_SIZE;
@@ -187,7 +198,7 @@ class Raycaster
             foreach (var kv in roomGenerator.ceilingTextureIds)
             {
                 int index = kv.Value;
-                Image img = Raylib.LoadImage($"Assets/{kv.Key}.png");
+                Image img = Raylib.LoadImage($"Assets/dungeon/dungeon_{kv.Key}.png");
 
                 int x = (index % TilesPerRow) * TEXTURE_SIZE;
                 int y = (index / TilesPerRow) * TEXTURE_SIZE;
@@ -229,13 +240,7 @@ class Raycaster
                 {
                     int randomRoachTextureIndex = RandomR.Range(0, 3);
 
-                    Texture2D roachTexture = randomRoachTextureIndex switch
-                    {
-                        0 => textures["roach_green"],
-                        1 => textures["roach_blue"],
-                        2 => textures["roach_red"],
-                        _ => textures["roach_red"]
-                    };
+                    Texture2D roachTexture = textures["scarecrow"];
 
                     if (!roomGenerator.tileMap[pos.x, pos.y].isWalkable) continue; // Only spawn on walkable tiles
 
@@ -1112,8 +1117,8 @@ class Raycaster
             {
                 Texture = textures["electro_bullet"],
             });
-            bullet.AddComponent(new BulletHealthComponent(10));
-            bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 10f));
+            bullet.AddComponent(new BulletHealthComponent(50));
+            bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
 
             entities.Add(bullet);
 
