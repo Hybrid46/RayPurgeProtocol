@@ -216,7 +216,7 @@ public class RoachAI : Component, IUpdatable
         if (playerHealth != null)
         {
             playerHealth.TakeDamage(1);
-            Console.WriteLine("Roach attacked player! Player health: " + playerHealth.CurrentHP);
+            Console.WriteLine("Roach attacked player! Player health: " + playerHealth.current);
         }
     }
 

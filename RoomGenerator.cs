@@ -54,6 +54,7 @@ public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoo
         public HashSet<Vector2IntR> edgeCoords; // Edge of the map -> must be in walls too
         public HashSet<Vector2IntR> walls;      // Walls around the room
         public HashSet<Door> doors;             // Doors in the room
+        public List<Entity> items;
         public Vector2IntR startCoord { get; private set; } //Room center, where the room was generated from
         public Color color { get; private set; }
         public HashSet<Room> neighbourRooms;

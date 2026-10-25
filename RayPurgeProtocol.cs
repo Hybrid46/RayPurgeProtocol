@@ -4,6 +4,7 @@ using Raylib_cs;
 using Color = Raylib_cs.Color;
 using static Settings;
 using static RoomGenerator;
+using PurgeProtocol.ComponentSystem;
 
 class Raycaster
 {
@@ -279,6 +280,53 @@ class Raycaster
         });
 
         playerEntity.AddComponent(new HealthComponent(10));
+        playerEntity.AddComponent(new ManaComponent(50));
+        // 30/50 mana for start
+        playerEntity.manaComponent.TakeMana(20);
+    }
+
+    private static void CreateItems()
+    {
+        foreach (Room room in roomGenerator.rooms)
+        {
+            int randomItems = (int)RandomR.Range(0f, 4f);
+
+            if (randomItems == 0) continue;
+
+            List<Vector2> itemCoords = new List<Vector2>(randomItems);
+            List<Vector2IntR> roomCoords = new List<Vector2IntR>(room.coords);
+
+            if (roomCoords.Count < itemCoords.Count) continue;
+
+            for (int i = 0; i < randomItems; i++)
+            {
+                itemCoords.Add(roomCoords[i] + new Vector2(0.5f, 0.5f));
+            }
+
+            room.items = new List<Entity>(randomItems);
+
+            foreach (Vector2 itemCoord in itemCoords)
+            {
+                Entity item = new Entity();
+                Transform transform = item.AddComponent<Transform>(new Transform()
+                {
+                    Position = itemCoord
+                });
+                RaySpriteRenderer renderer = item.AddComponent<RaySpriteRenderer>(new RaySpriteRenderer
+                {
+                    Texture = textures["electro_bullet"],
+                });
+                PowerUpComponent powerUp = item.AddComponent<PowerUpComponent>(new PowerUpComponent
+                {
+                    effectType = 1 //mana only
+                });
+
+                entities.Add(item);
+                room.items.Add(item);
+            }
+
+            Console.WriteLine($"Loaded {itemCoords.Count} item for room {room.GetHashCode()}");
+        }
     }
 
     //Create Depth texture with the internalScreenWidth of the screen and 1 pixel height storing normalized 32 bit float ZBuffer values in red channel
@@ -321,7 +369,7 @@ class Raycaster
         Raylib.DrawRectangle(posX, posY, barWidth, barHeight, new Color(50, 50, 50, 200));
 
         // Calculate health percentage
-        float healthPercent = (float)playerEntity.healthComponent.CurrentHP / playerEntity.healthComponent.MaxHP;
+        float healthPercent = (float)playerEntity.healthComponent.current / playerEntity.healthComponent.max;
         int fillWidth = (int)(barWidth * healthPercent);
 
         // Gradient color based on health
@@ -338,12 +386,50 @@ class Raycaster
         Raylib.DrawRectangleLines(posX, posY, barWidth, barHeight, Color.Black);
 
         // Draw health text with shadow
-        string healthText = $"HP: {playerEntity.healthComponent.CurrentHP}/{playerEntity.healthComponent.MaxHP}";
+        string healthText = $"HP: {playerEntity.healthComponent.current}/{playerEntity.healthComponent.max}";
         int textX = posX + 5;  // Left-aligned
         int textY = posY + (barHeight - 20) / 2;
 
         Raylib.DrawText(healthText, textX + 1, textY + 1, 20, Color.Black);
         Raylib.DrawText(healthText, textX, textY, 20, Color.White);
+    }
+
+    static void DrawPlayerMana()
+    {
+        if (playerEntity == null || playerEntity.manaComponent == null) return;
+
+        int barWidth = 200;
+        int barHeight = 20;
+        int posX = 10 + barWidth + 40; // barWidth is healthbar width!
+        int posY = screenHeight - barHeight - 10;  // Positioned at bottom-left
+
+        // Draw background
+        Raylib.DrawRectangle(posX, posY, barWidth, barHeight, new Color(50, 50, 50, 200));
+
+        // Calculate mana percentage
+        float manaPercent = (float)playerEntity.manaComponent.current / playerEntity.manaComponent.max;
+        int fillWidth = (int)(barWidth * manaPercent);
+
+        // Gradient color based on mana
+        Color fillColor;
+        if (manaPercent > 0.6f)
+            fillColor = new Color(40, 180, 40, 255);  // Healthy green
+        else if (manaPercent > 0.3f)
+            fillColor = new Color(220, 150, 40, 255); // Warning orange
+        else
+            fillColor = new Color(200, 40, 40, 255);  // Danger red
+
+        // Draw mana bar with border
+        Raylib.DrawRectangle(posX, posY, fillWidth, barHeight, fillColor);
+        Raylib.DrawRectangleLines(posX, posY, barWidth, barHeight, Color.Black);
+
+        // Draw mana text with shadow
+        string manaText = $"Mana: {playerEntity.manaComponent.current}/{playerEntity.manaComponent.max}";
+        int textX = posX + 5;  // Left-aligned
+        int textY = posY + (barHeight - 20) / 2;
+
+        Raylib.DrawText(manaText, textX + 1, textY + 1, 20, Color.Black);
+        Raylib.DrawText(manaText, textX, textY, 20, Color.White);
     }
 
     static void DrawPerformanceMetrics()
@@ -453,7 +539,7 @@ class Raycaster
 
         Raylib.BeginBlendMode(BlendMode.Alpha);
 
-        //Set Depth texture for Sprite shader        
+        //Set Depth texture for Sprite shader
         Raylib.SetShaderValueTexture(spriteShader, depthTexLoc, depthTexture);
 
         foreach (Entity entity in visibleEntities)
@@ -887,6 +973,7 @@ class Raycaster
         LoadMap();
         CreatePlayer();
         LoadEnemys();
+        CreateItems();
 
         while (!Raylib.WindowShouldClose())
         {
@@ -964,6 +1051,7 @@ class Raycaster
                 DrawMinimap();
                 Raylib.DrawFPS(10, 10);
                 DrawPlayerHealth();
+                DrawPlayerMana();
                 DrawMouse();
 
                 Raylib.EndDrawing();
@@ -992,6 +1080,7 @@ class Raycaster
         HandleMouse();
         HandleEntites();
         PlayerRegeneration();
+        LookForPowerUps();
     }
 
     private static void HandleEntites()
@@ -1104,28 +1193,34 @@ class Raycaster
             float wallDist;
             Entity hitEnemy = CastShootingRay(out wallDist);
 
-            //instantiate a bullet with lifetime as a health component
-            Entity bullet = new Entity();
-            bullet.AddComponent(new Transform
+            ManaComponent manaComponent = playerEntity.GetComponent<ManaComponent>();
+            if (manaComponent.current > 0)
             {
-                Position = playerEntity.transform.Position
-            });
-            bullet.AddComponent(new RaySpriteRenderer
-            {
-                Texture = textures["electro_bullet"],
-            });
-            bullet.AddComponent(new BulletHealthComponent(50));
-            bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
+                manaComponent.TakeMana(1);
 
-            entities.Add(bullet);
+                //instantiate a bullet with lifetime as a health component
+                Entity bullet = new Entity();
+                bullet.AddComponent(new Transform
+                {
+                    Position = playerEntity.transform.Position
+                });
+                bullet.AddComponent(new RaySpriteRenderer
+                {
+                    Texture = textures["electro_bullet"],
+                });
+                bullet.AddComponent(new BulletHealthComponent(50));
+                bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
 
-            if (hitEnemy != null)
-            {
-                hitEnemy.healthComponent?.TakeDamage(1);
-                Console.WriteLine("Hit enemy!");
+                entities.Add(bullet);
 
-                // Optional: Play hit sound
-                // Raylib.PlaySound(hitSound);
+                if (hitEnemy != null)
+                {
+                    hitEnemy.healthComponent?.TakeDamage(1);
+                    Console.WriteLine("Hit enemy!");
+
+                    // Optional: Play hit sound
+                    // Raylib.PlaySound(hitSound);
+                }
             }
         }
     }
@@ -1133,9 +1228,29 @@ class Raycaster
     // Regenerate health over time, TODO -> out of combat regeneration
     private static void PlayerRegeneration()
     {
-        if (playerEntity.healthComponent.CurrentHP < playerEntity.healthComponent.MaxHP)
+        if (playerEntity.healthComponent.current < playerEntity.healthComponent.max)
         {
             if (RandomR.Range(0f, 1f) > 0.999f) playerEntity.healthComponent.TakeDamage(-1); // Heal 1 HP
+        }
+
+        if (playerEntity.manaComponent.current < playerEntity.manaComponent.max)
+        {
+            if (RandomR.Range(0f, 1f) > 0.999f) playerEntity.manaComponent.TakeMana(-1); // 1 mana regen
+        }
+    }
+
+    private static void LookForPowerUps()
+    {
+        List<Entity> roomItems = roomGenerator.GetRoomAtPosition(playerEntity.transform.Position).items;
+
+        if (roomItems == null || roomItems.Count == 0) return;
+
+        foreach (Entity item in roomItems)
+        {
+            if (Vector2.Distance(item.transform.Position, playerEntity.transform.Position) < 1f)
+            {
+                item.powerUpComponent.PickUp(playerEntity);
+            }
         }
     }
 

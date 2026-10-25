@@ -1,18 +1,18 @@
 ﻿public class HealthComponent : Component
 {
-    public int MaxHP { get; private set; }
-    public int CurrentHP { get; private set; }
+    public int max { get; private set; }
+    public int current { get; private set; }
 
-    public HealthComponent(int maxHP)
+    public HealthComponent(int max)
     {
-        MaxHP = maxHP;
-        CurrentHP = maxHP;
+        this.max = max;
+        current = max;
     }
 
     public void TakeDamage(int amount)
     {
-        CurrentHP = Math.Clamp(CurrentHP - amount, 0 , MaxHP);
-        if (CurrentHP == 0) Die();
+        current = Math.Clamp(current - amount, 0 , max);
+        if (current == 0) Die();
     }
 
     protected virtual void Die()
