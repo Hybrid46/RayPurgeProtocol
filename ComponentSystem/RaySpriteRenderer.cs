@@ -5,6 +5,7 @@ public class RaySpriteRenderer : Component
 {
     public Texture2D Texture { get; set; }
     public Vector2 Position => Entity.transform.Position;
+    public float spriteScale = 1f;
 
     public void Draw(Entity player, Shader spriteShader, int internalScreenWidth, int internalScreenHeight)
     {
@@ -21,7 +22,7 @@ public class RaySpriteRenderer : Component
 
         // Calculate sprite screen position and size
         int spriteScreenX = (int)((internalScreenWidth / 2) * (1 + transformX / transformY));
-        int spriteHeight = Math.Abs((int)(internalScreenHeight / transformY));
+        int spriteHeight = Math.Abs((int)((internalScreenHeight / transformY) * spriteScale));
         if (spriteHeight < 2) return;
 
         float aspectRatio = Texture.Width / (float)Texture.Height;

@@ -106,7 +106,11 @@ class Raycaster
         textures.Add("ceiling2", LoadTexture("Assets/dungeon/dungeon_ceiling2.png", true));
         textures.Add("floor", LoadTexture("Assets/dungeon/dungeon_floor1.png", true));
         textures.Add("floor2", LoadTexture("Assets/dungeon/dungeon_floor2.png", true));
-        textures.Add("electro_bullet", LoadTexture("Assets/dungeon/fire_ball.png"));
+        textures.Add("fireball", LoadTexture("Assets/dungeon/fireball.png"));
+
+        textures.Add("bread", LoadTexture("Assets/dungeon/bread.png"));
+        textures.Add("mushroom", LoadTexture("Assets/dungeon/mushroom.png"));
+        textures.Add("pumpkin", LoadTexture("Assets/dungeon/pumpkin.png"));
 
         Texture2D LoadTexture(string path, bool repeat = false)
         {
@@ -307,18 +311,37 @@ class Raycaster
 
             foreach (Vector2 itemCoord in itemCoords)
             {
+                int effectType = (int)RandomR.Range(0f, 3f); //0 hp 1 mana 2 endgame
+
                 Entity item = new Entity();
+
                 Transform transform = item.AddComponent<Transform>(new Transform()
                 {
                     Position = itemCoord
                 });
-                RaySpriteRenderer renderer = item.AddComponent<RaySpriteRenderer>(new RaySpriteRenderer
+
+                RaySpriteRenderer renderer = item.AddComponent<RaySpriteRenderer>(new RaySpriteRenderer());
+
+                switch (effectType)
                 {
-                    Texture = textures["electro_bullet"],
-                });
+                    case 0:
+                        renderer.Texture = textures["bread"];
+                        break;
+                    case 1:
+                        renderer.Texture = textures["mushroom"];
+                        break;
+                    case 2:
+                        renderer.Texture = textures["pumpkin"];
+                        break;
+                    default:
+                        break;
+                }
+
+                renderer.spriteScale = 0.2f;
+
                 PowerUpComponent powerUp = item.AddComponent<PowerUpComponent>(new PowerUpComponent
                 {
-                    effectType = 1 //mana only
+                    effectType = effectType
                 });
 
                 entities.Add(item);
@@ -1206,7 +1229,8 @@ class Raycaster
                 });
                 bullet.AddComponent(new RaySpriteRenderer
                 {
-                    Texture = textures["electro_bullet"],
+                    Texture = textures["fireball"],
+                    spriteScale = 0.2f                    
                 });
                 bullet.AddComponent(new BulletHealthComponent(50));
                 bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
@@ -1247,7 +1271,7 @@ class Raycaster
 
         foreach (Entity item in roomItems)
         {
-            if (Vector2.Distance(item.transform.Position, playerEntity.transform.Position) < 1f)
+            if (Vector2.Distance(item.transform.Position, playerEntity.transform.Position) < 0.5f)
             {
                 item.powerUpComponent.PickUp(playerEntity);
             }
