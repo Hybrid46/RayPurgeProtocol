@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Globalization;
@@ -28,6 +28,11 @@ public static class Settings
     public static float mouseRotationSpeed = 4.0f;
     public static float FOV = 0.9f;
 
+    // game options
+    public static int difficulty = 1;            // 0=Easy, 1=Normal, 2=Hard
+    public static float enemySpawnChance = 0.25f; // 0..1
+    public static float extraDoorChance = 0f;     // 0..1
+
     private const string SETTINGS_FILE = "settings.cfg";
 
     private static void LoadDefaults()
@@ -49,6 +54,9 @@ public static class Settings
         FOV = 0.9f;
         fixedDeltaTime = 1.0f / targetUPS;
         drawDistance = 50.0f;
+        difficulty = 1;
+        enemySpawnChance = 0.25f;
+        extraDoorChance = 0f;
     }
 
     public static void LoadSettings()
@@ -57,7 +65,7 @@ public static class Settings
         {
             Console.WriteLine("Settings file not found. Creating with default values.");
             LoadDefaults();
-            SaveSettings();  // Create file with defaults
+            SaveSettings();
             return;
         }
 
@@ -77,7 +85,6 @@ public static class Settings
                 }
             }
 
-            // Parse display settings
             if (loadedSettings.TryGetValue(nameof(display), out string displayStr) &&
                 int.TryParse(displayStr, out int displayValue)) display = displayValue;
 
@@ -105,14 +112,12 @@ public static class Settings
             if (loadedSettings.TryGetValue(nameof(borderlessWindowed), out string borderlessStr))
                 borderlessWindowed = Convert.ToBoolean(borderlessStr);
 
-            // Parse performance settings
             if (loadedSettings.TryGetValue(nameof(targetFPS), out string fpsStr) &&
                 int.TryParse(fpsStr, out int fps)) targetFPS = fps;
 
             if (loadedSettings.TryGetValue(nameof(targetUPS), out string upsStr) &&
                 int.TryParse(upsStr, out int ups)) targetUPS = ups;
 
-            // Parse gameplay settings - FIXED: use different variable names to avoid conflicts
             if (loadedSettings.TryGetValue(nameof(moveSpeed), out string moveSpeedStr) &&
                 float.TryParse(moveSpeedStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float moveSpeedVal))
                 moveSpeed = moveSpeedVal;
@@ -128,12 +133,22 @@ public static class Settings
             if (loadedSettings.TryGetValue(nameof(FOV), out string FOVStr) &&
                 float.TryParse(FOVStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float FOVVal))
                 FOV = FOVVal;
-            
+
             if (loadedSettings.TryGetValue(nameof(drawDistance), out string drawDistanceStr) &&
                 float.TryParse(drawDistanceStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float drawDistanceVal))
                 drawDistance = drawDistanceVal;
 
-            // Update derived values
+            if (loadedSettings.TryGetValue(nameof(difficulty), out string diffStr) &&
+                int.TryParse(diffStr, out int diffVal)) difficulty = Math.Clamp(diffVal, 0, 2);
+
+            if (loadedSettings.TryGetValue(nameof(enemySpawnChance), out string spawnStr) &&
+                float.TryParse(spawnStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float spawnVal))
+                enemySpawnChance = Math.Clamp(spawnVal, 0f, 1f);
+
+            if (loadedSettings.TryGetValue(nameof(extraDoorChance), out string doorStr) &&
+                float.TryParse(doorStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float doorVal))
+                extraDoorChance = Math.Clamp(doorVal, 0f, 1f);
+
             fixedDeltaTime = 1.0f / Math.Max(targetUPS, 1);
 
             Console.WriteLine("Settings loaded successfully.");
@@ -154,7 +169,6 @@ public static class Settings
                 writer.WriteLine($"# Game settings configuration");
                 writer.WriteLine();
 
-                // Display settings
                 writer.WriteLine($"# Display Settings");
                 writer.WriteLine($"{nameof(display)}={display}");
                 writer.WriteLine($"{nameof(screenWidth)}={screenWidth}");
@@ -167,19 +181,23 @@ public static class Settings
                 writer.WriteLine($"{nameof(borderlessWindowed)}={borderlessWindowed.ToString().ToLower()}");
                 writer.WriteLine();
 
-                // Performance settings
                 writer.WriteLine($"# Performance Settings");
                 writer.WriteLine($"{nameof(targetFPS)}={targetFPS}");
                 writer.WriteLine($"{nameof(targetUPS)}={targetUPS}");
-                writer.WriteLine($"{nameof(drawDistance)}={drawDistance}");
+                writer.WriteLine($"{nameof(drawDistance)}={drawDistance.ToString(CultureInfo.InvariantCulture)}");
                 writer.WriteLine();
 
-                // Gameplay settings
                 writer.WriteLine($"# Gameplay Settings");
                 writer.WriteLine($"{nameof(moveSpeed)}={moveSpeed.ToString(CultureInfo.InvariantCulture)}");
                 writer.WriteLine($"{nameof(rotationSpeed)}={rotationSpeed.ToString(CultureInfo.InvariantCulture)}");
                 writer.WriteLine($"{nameof(mouseRotationSpeed)}={mouseRotationSpeed.ToString(CultureInfo.InvariantCulture)}");
                 writer.WriteLine($"{nameof(FOV)}={FOV.ToString(CultureInfo.InvariantCulture)}");
+                writer.WriteLine();
+
+                writer.WriteLine($"# Game Options");
+                writer.WriteLine($"{nameof(difficulty)}={difficulty}");
+                writer.WriteLine($"{nameof(enemySpawnChance)}={enemySpawnChance.ToString(CultureInfo.InvariantCulture)}");
+                writer.WriteLine($"{nameof(extraDoorChance)}={extraDoorChance.ToString(CultureInfo.InvariantCulture)}");
             }
             Console.WriteLine("Settings saved successfully.");
         }

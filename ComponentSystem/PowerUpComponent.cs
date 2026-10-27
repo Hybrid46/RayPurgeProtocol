@@ -1,4 +1,4 @@
-﻿namespace PurgeProtocol.ComponentSystem
+namespace PurgeProtocol.ComponentSystem
 {
     public class PowerUpComponent : Component
     {
@@ -8,7 +8,7 @@
         {
             switch (effectType)
             {
-                case 0: //+5hp
+                case 0:
                     HealthComponent healthComponent = entity.GetComponent<HealthComponent>();
                     if (healthComponent != null)
                     {
@@ -18,12 +18,9 @@
                             Console.WriteLine($"Entity {GetHashCode()} picked up, +5 HP");
                         }
                     }
-                    else
-                    {
-                        return;
-                    }
+                    else return;
                     break;
-                case 1: //+5mana
+                case 1:
                     ManaComponent manaComponent = entity.manaComponent;
                     if (manaComponent != null)
                     {
@@ -33,14 +30,12 @@
                             Console.WriteLine($"Entity {GetHashCode()} picked up, +5 mana");
                         }
                     }
-                    else
-                    {
-                        return;
-                    }
+                    else return;
                     break;
-                case 2: //endgame
+                case 2: // endgame item triggers win + main menu
                     Console.WriteLine($"Entity {GetHashCode()} picked up, endgame item");
                     Console.WriteLine($"You won the game!");
+                    GameSession.EndGame(true);
                     break;
                 default:
                     break;

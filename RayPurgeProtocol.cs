@@ -69,6 +69,7 @@ class Raycaster
     static float maxZ = 0f;
 
     static RoomGenerator roomGenerator;
+    static MenuSystem menu = new MenuSystem();
 
     static float interactionDistance = 1.0f;
 
@@ -78,9 +79,6 @@ class Raycaster
 
     static void LoadTextures()
     {
-        renderTarget = Raylib.LoadRenderTexture(internalScreenWidth, internalScreenHeight);
-        depthTexture = CreateDepthTexture();
-
         textures.Add("checkerBoard", LoadTexture("Assets/CheckerBoard.png"));
         textures.Add("crosshairs", LoadTexture("Assets/crosshairs_128.png"));
 
@@ -150,11 +148,15 @@ class Raycaster
 
     static void LoadMap()
     {
-        roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, 0f);
+        if (floorAtlasTextures.Id != 0) Raylib.UnloadTexture(floorAtlasTextures);
+        if (ceilingAtlasTextures.Id != 0) Raylib.UnloadTexture(ceilingAtlasTextures);
+        floorAtlasTextures = default;
+        ceilingAtlasTextures = default;
+
+        roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, Settings.extraDoorChance);
         roomGenerator.Generate();
         GenerateFloorCeilingAtlasTextures();
 
-        //Debug the starting room
         roomGenerator.PrintRoom(0);
         foreach (Room neighbour in roomGenerator.rooms[0].neighbourRooms) roomGenerator.PrintRoom(neighbour);
 
@@ -164,106 +166,74 @@ class Raycaster
         {
             const int TilesPerRow = 16;
 
-            // Floor atlas
-            Image floorAtlasImage = Raylib.GenImageColor(
-                TEXTURE_SIZE * TilesPerRow,
-                TEXTURE_SIZE * TilesPerRow,
-                Color.Blank
-            );
-
+            Image floorAtlasImage = Raylib.GenImageColor(TEXTURE_SIZE * TilesPerRow, TEXTURE_SIZE * TilesPerRow, Color.Blank);
             foreach (var kv in roomGenerator.floorTextureIds)
             {
                 int index = kv.Value;
                 Image img = Raylib.LoadImage($"Assets/dungeon/dungeon_{kv.Key}.png");
-
                 int x = (index % TilesPerRow) * TEXTURE_SIZE;
                 int y = (index / TilesPerRow) * TEXTURE_SIZE;
-
-                Raylib.ImageDraw(
-                    ref floorAtlasImage,
-                    img,
-                    new Rectangle(0, 0, TEXTURE_SIZE, TEXTURE_SIZE),
-                    new Rectangle(x, y, TEXTURE_SIZE, TEXTURE_SIZE),
-                    Color.White
-                );
-
+                Raylib.ImageDraw(ref floorAtlasImage, img, new Rectangle(0, 0, TEXTURE_SIZE, TEXTURE_SIZE), new Rectangle(x, y, TEXTURE_SIZE, TEXTURE_SIZE), Color.White);
                 Raylib.UnloadImage(img);
             }
-
             floorAtlasTextures = Raylib.LoadTextureFromImage(floorAtlasImage);
             Raylib.UnloadImage(floorAtlasImage);
 
-            //Ceiling atlas
-            Image ceilingAtlasImage = Raylib.GenImageColor(
-                TEXTURE_SIZE * TilesPerRow,
-                TEXTURE_SIZE * TilesPerRow,
-                Color.Blank
-            );
-
+            Image ceilingAtlasImage = Raylib.GenImageColor(TEXTURE_SIZE * TilesPerRow, TEXTURE_SIZE * TilesPerRow, Color.Blank);
             foreach (var kv in roomGenerator.ceilingTextureIds)
             {
                 int index = kv.Value;
                 Image img = Raylib.LoadImage($"Assets/dungeon/dungeon_{kv.Key}.png");
-
                 int x = (index % TilesPerRow) * TEXTURE_SIZE;
                 int y = (index / TilesPerRow) * TEXTURE_SIZE;
-
-                Raylib.ImageDraw(
-                    ref ceilingAtlasImage,
-                    img,
-                    new Rectangle(0, 0, TEXTURE_SIZE, TEXTURE_SIZE),
-                    new Rectangle(x, y, TEXTURE_SIZE, TEXTURE_SIZE),
-                    Color.White
-                );
-
+                Raylib.ImageDraw(ref ceilingAtlasImage, img, new Rectangle(0, 0, TEXTURE_SIZE, TEXTURE_SIZE), new Rectangle(x, y, TEXTURE_SIZE, TEXTURE_SIZE), Color.White);
                 Raylib.UnloadImage(img);
             }
-
             ceilingAtlasTextures = Raylib.LoadTextureFromImage(ceilingAtlasImage);
             Raylib.UnloadImage(ceilingAtlasImage);
         }
 
         Raylib.SetTextureFilter(floorAtlasTextures, TextureFilter.Point);
         Raylib.SetTextureWrap(floorAtlasTextures, TextureWrap.Clamp);
-
         Raylib.SetTextureFilter(ceilingAtlasTextures, TextureFilter.Point);
         Raylib.SetTextureWrap(ceilingAtlasTextures, TextureWrap.Clamp);
     }
 
     private static void LoadEnemys()
     {
-        float spawnChance = 0.25f;
+        float spawnChance = Settings.enemySpawnChance;
         Room playerRoom = roomGenerator.GetRoomAtPosition(playerEntity.transform.Position);
 
         foreach (Room room in roomGenerator.rooms)
         {
-            if (room == playerRoom) continue; // Skip the player's room
+            if (room == playerRoom) continue;
 
             foreach (Vector2IntR pos in room.coords)
             {
                 if (RandomR.value < spawnChance)
                 {
-                    if (!roomGenerator.tileMap[pos.x, pos.y].isWalkable) continue; // Only spawn on walkable tiles
-                    int difficulty = RandomR.Range(0, 2);
+                    if (!roomGenerator.tileMap[pos.x, pos.y].isWalkable) continue;
+
+                    int baseHP = 1 + Settings.difficulty;
+                    int hp = baseHP + RandomR.Range(0, 2);
+
                     Texture2D texture = textures["scarecrow"];
                     Vector2 startPosition = new Vector2(pos.x + 0.5f, pos.y + 0.5f);
-                    entities.Add(CreateRoach(texture, startPosition, difficulty));
+                    entities.Add(CreateRoach(texture, startPosition, hp));
                 }
             }
         }
 
         Console.WriteLine($"Loaded {entities.Count} scarecrows");
 
-        Entity CreateRoach(Texture2D sprite, Vector2 startPosition, int difficulty)
+        Entity CreateRoach(Texture2D sprite, Vector2 startPosition, int hp)
         {
             Entity roach = new Entity();
-
             roach.AddComponent(new Transform { Position = startPosition });
-            roach.AddComponent(new HealthComponent(difficulty + 1));
+            roach.AddComponent(new HealthComponent(hp));
             roach.AddComponent(new RaySpriteRenderer { Texture = sprite });
             roach.AddComponent(new RoachAI());
             roach.GetComponent<RoachAI>().Initialize(pathfindingSystem, roomGenerator);
-
             return roach;
         }
     }
@@ -271,10 +241,7 @@ class Raycaster
     static void CreatePlayer()
     {
         playerEntity = new Entity();
-        playerEntity.AddComponent(new Transform
-        {
-            Position = new Vector2(1.5f, 1.5f)
-        });
+        playerEntity.AddComponent(new Transform { Position = new Vector2(1.5f, 1.5f) });
 
         playerEntity.AddComponent(new PlayerController
         {
@@ -283,9 +250,10 @@ class Raycaster
             MouseRotationSpeed = 0.1f
         });
 
-        playerEntity.AddComponent(new HealthComponent(10));
+        int playerHP = Settings.difficulty switch { 0 => 15, 1 => 10, 2 => 5, _ => 10 };
+        playerEntity.AddComponent(new HealthComponent(playerHP));
+
         playerEntity.AddComponent(new ManaComponent(50));
-        // 30/50 mana for start
         playerEntity.manaComponent.TakeMana(20);
     }
 
@@ -973,6 +941,104 @@ class Raycaster
         }
     }
 
+    // === NEW: setup everything needed for a fresh run ===
+    static void InitializeGame()
+    {
+        // Recreate GPU/CPU resources if resolution changed
+        if (zBuffer.Length != internalScreenWidth)
+            zBuffer = new float[internalScreenWidth];
+
+        if (renderTarget.Id != 0) Raylib.UnloadRenderTexture(renderTarget);
+        renderTarget = Raylib.LoadRenderTexture(internalScreenWidth, internalScreenHeight);
+
+        if (depthTexture.Id != 0) Raylib.UnloadTexture(depthTexture);
+        depthTexture = CreateDepthTexture();
+
+        Raylib.SetTargetFPS(targetFPS);
+
+        // Reset accumulators
+        accumulator = 0f;
+        upsCount = 0;
+        upsTimer = 0;
+
+        entities.Clear();
+        LoadMap();
+        CreatePlayer();
+        LoadEnemys();
+        CreateItems();
+
+        Raylib.SetMousePosition(screenWidth / 2, screenHeight / 2);
+
+        GameSession.StartGame();
+    }
+
+    // release everything tied to a single run
+    static void CleanupGame()
+    {
+        entities.Clear();
+        playerEntity = null;
+        pathfindingSystem = null;
+
+        if (roomGenerator != null)
+        {
+            roomGenerator.Cleanup();
+            roomGenerator = null;
+        }
+
+        if (floorAtlasTextures.Id != 0) Raylib.UnloadTexture(floorAtlasTextures);
+        if (ceilingAtlasTextures.Id != 0) Raylib.UnloadTexture(ceilingAtlasTextures);
+        floorAtlasTextures = default;
+        ceilingAtlasTextures = default;
+    }
+
+    // render the game view + HUD
+    static void RenderGame()
+    {
+        CastRays();
+
+        Raylib.BeginDrawing();
+        Raylib.ClearBackground(Color.Black);
+
+        Rectangle source = new Rectangle(0, 0, internalScreenWidth, -internalScreenHeight);
+        Rectangle dest = new Rectangle(0, 0, screenWidth, screenHeight);
+        Raylib.DrawTexturePro(renderTarget.Texture, source, dest, Vector2.Zero, 0f, Color.White);
+
+        DrawPerformanceMetrics();
+        DrawMinimap();
+        Raylib.DrawFPS(10, 10);
+        DrawPlayerHealth();
+        DrawPlayerMana();
+        DrawMouse();
+
+        Raylib.EndDrawing();
+    }
+
+    // victory/defeat screen showing elapsed time
+    static void DrawEndScreen()
+    {
+        string title = GameSession.didWin ? "VICTORY!" : "GAME OVER";
+        Color titleColor = GameSession.didWin ? new Color(100, 255, 100, 255) : new Color(255, 100, 100, 255);
+
+        int titleSize = 64;
+        int titleWidth = Raylib.MeasureText(title, titleSize);
+        Raylib.DrawText(title, (screenWidth - titleWidth) / 2, screenHeight / 2 - 150, titleSize, titleColor);
+
+        string subtitle = GameSession.didWin ? "You found the artifact!" : "You have been defeated.";
+        int subSize = 26;
+        int subWidth = Raylib.MeasureText(subtitle, subSize);
+        Raylib.DrawText(subtitle, (screenWidth - subWidth) / 2, screenHeight / 2 - 60, subSize, Color.LightGray);
+
+        string timeText = $"Time: {GameSession.FormatElapsed()}";
+        int timeSize = 36;
+        int timeWidth = Raylib.MeasureText(timeText, timeSize);
+        Raylib.DrawText(timeText, (screenWidth - timeWidth) / 2, screenHeight / 2 + 20, timeSize, Color.Yellow);
+
+        string inst = "Press ENTER to return to Main Menu";
+        int instSize = 20;
+        int instWidth = Raylib.MeasureText(inst, instSize);
+        Raylib.DrawText(inst, (screenWidth - instWidth) / 2, screenHeight / 2 + 130, instSize, Color.Gray);
+    }
+
     static void Main()
     {
         Console.WriteLine("Initializing ...");
@@ -983,7 +1049,6 @@ class Raycaster
         Raylib.SetWindowFocused();
         Raylib.SetWindowPosition(Raylib.GetScreenWidth() / 2, Raylib.GetScreenHeight() / 2);
         if (borderlessWindowed) Raylib.ToggleBorderlessWindowed();
-
         Raylib.SetTargetFPS(targetFPS);
 
         frameTimer.Start();
@@ -993,106 +1058,131 @@ class Raycaster
 
         LoadTextures();
         LoadShaders();
-        LoadMap();
-        CreatePlayer();
-        LoadEnemys();
-        CreateItems();
 
-        while (!Raylib.WindowShouldClose())
+        // state machine 
+        GameState gameState = GameState.MainMenu;
+        bool shouldExit = false;
+
+        while (!shouldExit && !Raylib.WindowShouldClose())
         {
-            // Calculate frame time
             currentTime = gameTimer.Elapsed.TotalSeconds;
             double frameTime = currentTime - lastTime;
             lastTime = currentTime;
-
-            // Convert to milliseconds for metrics
             totalFrameTimeMs = frameTime * 1000.0;
 
-            // Update performance stats
-            if (totalFrameTimeMs < minFrameTime) minFrameTime = totalFrameTimeMs;
-            if (totalFrameTimeMs > maxFrameTime) maxFrameTime = totalFrameTimeMs;
-
-            frameCount++;
-            if (frameCount >= 60)
+            switch (gameState)
             {
-                avgFrameTime = (avgFrameTime * 0.9) + (totalFrameTimeMs * 0.1);
-                frameCount = 0;
-            }
+                // MAIN MENU
+                case GameState.MainMenu:
+                    menu.Update();
 
-            // Accumulate time for UPS
-            accumulator += (float)frameTime;
-            double updateStartTime = gameTimer.Elapsed.TotalSeconds;
+                    if (menu.wantsToStartGame)
+                    {
+                        Settings.SaveSettings();
+                        InitializeGame();
+                        gameState = GameState.Playing;
+                        break;
+                    }
+                    if (menu.wantsToExit)
+                    {
+                        Settings.SaveSettings();
+                        shouldExit = true;
+                        break;
+                    }
 
-            // Process input outside fixed update for responsiveness
-            if (ProcessInput()) break;
+                    Raylib.BeginDrawing();
+                    Raylib.ClearBackground(new Color(15, 15, 25, 255));
+                    menu.Draw(screenWidth, screenHeight);
+                    Raylib.EndDrawing();
+                    break;
 
-            // Fixed timestep updates for game logic
-            while (accumulator >= fixedDeltaTime)
-            {
-                using (PerformanceMonitor.Measure(t => PerformanceMonitor.fixedUpdateTime = t))
-                {
-                    FixedUpdate();
-                }
+                // PLAYING
+                case GameState.Playing:
+                    if (ProcessInput())
+                    {
+                        CleanupGame();
+                        menu.Reset();
+                        gameState = GameState.MainMenu;
+                        break;
+                    }
 
-                accumulator -= fixedDeltaTime;
-                upsCount++;
-            }
+                    // Perf stats
+                    if (totalFrameTimeMs < minFrameTime) minFrameTime = totalFrameTimeMs;
+                    if (totalFrameTimeMs > maxFrameTime) maxFrameTime = totalFrameTimeMs;
+                    frameCount++;
+                    if (frameCount >= 60)
+                    {
+                        avgFrameTime = (avgFrameTime * 0.9) + (totalFrameTimeMs * 0.1);
+                        frameCount = 0;
+                    }
 
-            // Update UPS counter every second
-            upsTimer += frameTime;
-            if (upsTimer >= 1.0)
-            {
-                ups = upsCount;
-                upsCount = 0;
-                upsTimer -= 1.0;
-            }
+                    accumulator += (float)frameTime;
+                    while (accumulator >= fixedDeltaTime)
+                    {
+                        using (PerformanceMonitor.Measure(t => PerformanceMonitor.fixedUpdateTime = t))
+                        {
+                            FixedUpdate();
+                        }
+                        accumulator -= fixedDeltaTime;
+                        upsCount++;
+                    }
 
-            // Only render if we're not running behind on updates
-            if (accumulator < fixedDeltaTime * 3)
-            {
-                // Update the 3D view - this is rendering, not logic
-                CastRays();
+                    upsTimer += frameTime;
+                    if (upsTimer >= 1.0)
+                    {
+                        ups = upsCount;
+                        upsCount = 0;
+                        upsTimer -= 1.0;
+                    }
 
-                // Drawing
-                Raylib.BeginDrawing();
-                Raylib.ClearBackground(Color.Black);
+                    if (accumulator < fixedDeltaTime * 3)
+                    {
+                        RenderGame();
+                    }
 
-                // Draw upscaled texture to screen
-                Rectangle source = new Rectangle(0, 0, internalScreenWidth, -internalScreenHeight);
-                Rectangle dest = new Rectangle(0, 0, screenWidth, screenHeight);
-                Raylib.DrawTexturePro(
-                    renderTarget.Texture,
-                    source,
-                    dest,
-                    Vector2.Zero,
-                    0f,
-                    Color.White
-                );
+                    // detect defeat
+                    if (!GameSession.isGameOver && playerEntity != null && playerEntity.healthComponent != null && playerEntity.healthComponent.current <= 0)
+                    {
+                        GameSession.EndGame(false);
+                    }
 
-                // Draw minimap and performance metrics
-                DrawPerformanceMetrics();
-                DrawMinimap();
-                Raylib.DrawFPS(10, 10);
-                DrawPlayerHealth();
-                DrawPlayerMana();
-                DrawMouse();
+                    // transition to end screen (win via PowerUpComponent)
+                    if (GameSession.isGameOver)
+                    {
+                        gameState = GameState.EndScreen;
+                    }
+                    break;
 
-                Raylib.EndDrawing();
+                // END SCREEN
+                case GameState.EndScreen:
+                    Raylib.BeginDrawing();
+                    Raylib.ClearBackground(new Color(15, 15, 25, 255));
+                    DrawEndScreen();
+                    Raylib.EndDrawing();
+
+                    if (Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.Space))
+                    {
+                        CleanupGame();
+                        menu.Reset();
+                        gameState = GameState.MainMenu;
+                    }
+                    break;
             }
 
             frameTimer.Restart();
         }
 
         // Cleanup
-        Raylib.UnloadRenderTexture(renderTarget);
-        Raylib.UnloadTexture(depthTexture);
+        CleanupGame();
+
+        if (renderTarget.Id != 0) Raylib.UnloadRenderTexture(renderTarget);
+        if (depthTexture.Id != 0) Raylib.UnloadTexture(depthTexture);
+
         Raylib.UnloadShader(spriteShader);
         Raylib.UnloadShader(floorCeilingShader);
 
         foreach (KeyValuePair<string, Texture2D> texture in textures)
-        {
             Raylib.UnloadTexture(texture.Value);
-        }
 
         Raylib.CloseWindow();
     }
@@ -1230,7 +1320,7 @@ class Raycaster
                 bullet.AddComponent(new RaySpriteRenderer
                 {
                     Texture = textures["fireball"],
-                    spriteScale = 0.2f                    
+                    spriteScale = 0.1f                    
                 });
                 bullet.AddComponent(new BulletHealthComponent(50));
                 bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
@@ -1280,13 +1370,6 @@ class Raycaster
 
     private static bool ProcessInput()
     {
-        // Exit the game
-        if (Raylib.IsKeyDown(KeyboardKey.Escape))
-        {
-            Raylib.CloseWindow();
-            return true;
-        }
-
-        return false;
+        return Raylib.IsKeyPressed(KeyboardKey.Escape);
     }
 }

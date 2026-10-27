@@ -314,6 +314,14 @@ public RoomGenerator(int gridWidth, int gridHeight, int minRoomSizeX, int maxRoo
         GenerateIDTextureMaps();
     }
 
+    public void Cleanup()
+    {
+        if (floorIdTex.Id != 0) Raylib.UnloadTexture(floorIdTex);
+        if (ceilingIdTex.Id != 0) Raylib.UnloadTexture(ceilingIdTex);
+        floorIdTex = default;
+        ceilingIdTex = default;
+    }
+
     private void InitializeGrid()
     {
         grid = new bool[gridWidth, gridHeight];
