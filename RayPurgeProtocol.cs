@@ -5,6 +5,7 @@ using Color = Raylib_cs.Color;
 using static Settings;
 using static RoomGenerator;
 using PurgeProtocol.ComponentSystem;
+using PurgeProtocol;
 
 class Raycaster
 {
@@ -941,12 +942,11 @@ class Raycaster
         }
     }
 
-    // === NEW: setup everything needed for a fresh run ===
+    // setup everything needed for a fresh run
     static void InitializeGame()
     {
         // Recreate GPU/CPU resources if resolution changed
-        if (zBuffer.Length != internalScreenWidth)
-            zBuffer = new float[internalScreenWidth];
+        if (zBuffer.Length != internalScreenWidth) zBuffer = new float[internalScreenWidth];
 
         if (renderTarget.Id != 0) Raylib.UnloadRenderTexture(renderTarget);
         renderTarget = Raylib.LoadRenderTexture(internalScreenWidth, internalScreenHeight);
@@ -960,6 +960,14 @@ class Raycaster
         accumulator = 0f;
         upsCount = 0;
         upsTimer = 0;
+
+        minFrameTime = double.MaxValue;
+        maxFrameTime = 0;
+        avgFrameTime = 0;
+        frameCount = 0;
+        totalFrameTimeMs = 0;
+
+        InputSystem.Clear();
 
         entities.Clear();
         LoadMap();
@@ -1066,9 +1074,10 @@ class Raycaster
         while (!shouldExit && !Raylib.WindowShouldClose())
         {
             currentTime = gameTimer.Elapsed.TotalSeconds;
-            double frameTime = currentTime - lastTime;
+            double rawFrameTime = currentTime - lastTime;
             lastTime = currentTime;
-            totalFrameTimeMs = frameTime * 1000.0;
+            double frameTime = Math.Min(rawFrameTime, 0.25);
+            totalFrameTimeMs = rawFrameTime * 1000.0;
 
             switch (gameState)
             {
@@ -1098,7 +1107,9 @@ class Raycaster
 
                 // PLAYING
                 case GameState.Playing:
-                    if (ProcessInput())
+                    InputSystem.Poll();
+
+                    if (Raylib.IsKeyPressed(KeyboardKey.Escape))
                     {
                         CleanupGame();
                         menu.Reset();
@@ -1276,7 +1287,7 @@ class Raycaster
         }
 
         //Interact (closest door, other interactables)
-        if (Raylib.IsKeyDown(KeyboardKey.F))
+        if (InputSystem.ConsumeKey(KeyboardKey.F))
         {
             Interact();
             //other interactions
@@ -1301,7 +1312,7 @@ class Raycaster
             playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
         }
 
-        if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+        if (InputSystem.ConsumeMouse(MouseButton.Left))
         {
             float wallDist;
             Entity hitEnemy = CastShootingRay(out wallDist);
@@ -1366,10 +1377,5 @@ class Raycaster
                 item.powerUpComponent.PickUp(playerEntity);
             }
         }
-    }
-
-    private static bool ProcessInput()
-    {
-        return Raylib.IsKeyPressed(KeyboardKey.Escape);
     }
 }
