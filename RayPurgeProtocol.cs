@@ -262,9 +262,12 @@ class Raycaster
 
     private static void CreateItems()
     {
+        int spawnedMushroom = 0;
+        int spawnedBread = 0;
+
         foreach (Room room in roomGenerator.rooms)
         {
-            int randomItems = (int)RandomR.Range(0f, 4f);
+            int randomItems = RandomR.Range(0, 4);
 
             if (randomItems == 0) continue;
 
@@ -282,7 +285,7 @@ class Raycaster
 
             foreach (Vector2 itemCoord in itemCoords)
             {
-                int effectType = (int)RandomR.Range(0f, 3f); //0 hp 1 mana 2 endgame
+                int effectType = Math.Min(RandomR.Range(0, 2), 1); //0 hp 1 mana
 
                 Entity item = new Entity();
 
@@ -296,13 +299,12 @@ class Raycaster
                 switch (effectType)
                 {
                     case 0:
+                        spawnedBread++;
                         renderer.Texture = textures["bread"];
                         break;
                     case 1:
+                        spawnedMushroom++;
                         renderer.Texture = textures["mushroom"];
-                        break;
-                    case 2:
-                        renderer.Texture = textures["pumpkin"];
                         break;
                     default:
                         break;
@@ -320,6 +322,8 @@ class Raycaster
             }
 
             Console.WriteLine($"Loaded {itemCoords.Count} item for room {room.GetHashCode()}");
+            Console.WriteLine($"Spawned {spawnedMushroom} mushrooms");
+            Console.WriteLine($"Spawned {spawnedBread} breads");
         }
     }
 
@@ -947,6 +951,18 @@ class Raycaster
         }
     }
 
+    private static int CountEnemies()
+    {
+        int count = 0;
+
+        foreach (Entity e in entities)
+        {
+            if (e.GetComponent<RoachAI>() != null && e.healthComponent != null && e.healthComponent.current > 0) count++;
+        }
+
+        return count;
+    }
+
     // setup everything needed for a fresh run
     static void InitializeGame()
     {
@@ -975,9 +991,13 @@ class Raycaster
         InputSystem.Clear();
 
         entities.Clear();
+        Debug.Print("Loading map...");
         LoadMap();
+        Debug.Print("Creating player...");
         CreatePlayer();
+        Debug.Print("Loading enemies...");
         LoadEnemys();
+        Debug.Print("Creating items...");
         CreateItems();
 
         Raylib.SetMousePosition(screenWidth / 2, screenHeight / 2);
@@ -1331,35 +1351,60 @@ class Raycaster
             Entity hitEnemy = CastShootingRay(out wallDist);
 
             ManaComponent manaComponent = playerEntity.GetComponent<ManaComponent>();
-            if (manaComponent.current > 0)
+
+            manaComponent.TakeMana(1);
+            shootCooldown = manaComponent.current > 0 ? SHOOT_COOLDOWN_TIME : SHOOT_COOLDOWN_TIME * 4f;
+
+            //instantiate a bullet with lifetime as a health component
+            Entity bullet = new Entity();
+            bullet.AddComponent(new Transform
             {
-                shootCooldown = SHOOT_COOLDOWN_TIME;
-                manaComponent.TakeMana(1);
+                Position = playerEntity.transform.Position
+            });
+            bullet.AddComponent(new RaySpriteRenderer
+            {
+                Texture = textures["fireball"],
+                spriteScale = 0.1f
+            });
+            bullet.AddComponent(new BulletHealthComponent(50));
+            bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
 
-                //instantiate a bullet with lifetime as a health component
-                Entity bullet = new Entity();
-                bullet.AddComponent(new Transform
+            entities.Add(bullet);
+
+            if (hitEnemy != null)
+            {
+                hitEnemy.healthComponent?.TakeDamage(1);
+                Console.WriteLine("Hit enemy!");
+
+                if (hitEnemy.healthComponent.current <= 0 && CountEnemies() == 0) // TODO count enemies is iterative, maybe i should keep a number for enemy count
                 {
-                    Position = playerEntity.transform.Position
-                });
-                bullet.AddComponent(new RaySpriteRenderer
-                {
-                    Texture = textures["fireball"],
-                    spriteScale = 0.1f
-                });
-                bullet.AddComponent(new BulletHealthComponent(50));
-                bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
+                    Entity item = new Entity();
 
-                entities.Add(bullet);
+                    Transform transform = item.AddComponent<Transform>(new Transform()
+                    {
+                        Position = hitEnemy.transform.Position
+                    });
 
-                if (hitEnemy != null)
-                {
-                    hitEnemy.healthComponent?.TakeDamage(1);
-                    Console.WriteLine("Hit enemy!");
+                    RaySpriteRenderer renderer = item.AddComponent<RaySpriteRenderer>(new RaySpriteRenderer());
+                    renderer.Texture = textures["pumpkin"];
+                    renderer.spriteScale = 0.2f;
 
-                    // Optional: Play hit sound
-                    // Raylib.PlaySound(hitSound);
+                    PowerUpComponent powerUp = item.AddComponent<PowerUpComponent>(new PowerUpComponent
+                    {
+                        effectType = 2 // endgame pumpkin item
+                    });
+
+                    entities.Add(item);
+
+                    // Create endgame item
+                    Room currentRoom = roomGenerator.GetRoomAtPosition(hitEnemy.transform.Position);
+                    List<Entity> roomItems = currentRoom.items;
+                    if (roomItems == null) roomItems = new List<Entity>(1);
+                    roomItems.Add(item);
                 }
+
+                // Optional: Play hit sound
+                // Raylib.PlaySound(hitSound);
             }
         }
     }
