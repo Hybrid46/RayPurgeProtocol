@@ -1,9 +1,12 @@
 ﻿using Raylib_cs;
+using System.Numerics;
 
 namespace PurgeProtocol
 {
     public static class InputSystem
     {
+        private static Vector2 mouseDeltaAccumulator;
+
         private static readonly Dictionary<MouseButton, bool> pendingMouse = new()
         {
             [MouseButton.Left] = false,
@@ -13,7 +16,14 @@ namespace PurgeProtocol
 
         private static readonly Dictionary<KeyboardKey, bool> pendingKeyboard = new()
         {
+            [KeyboardKey.Q] = false,
+            [KeyboardKey.W] = false,
+            [KeyboardKey.E] = false,
+            [KeyboardKey.A] = false,
+            [KeyboardKey.S] = false,
+            [KeyboardKey.D] = false,
             [KeyboardKey.F] = false,
+            [KeyboardKey.Space] = false,
         };
 
         /// <summary>
@@ -23,12 +33,14 @@ namespace PurgeProtocol
         public static void Poll()
         {
             foreach (var button in pendingMouse.Keys.ToArray())
-                if (Raylib.IsMouseButtonPressed(button))
+                if (Raylib.IsMouseButtonDown(button))
                     pendingMouse[button] = true;
 
             foreach (var key in pendingKeyboard.Keys.ToArray())
-                if (Raylib.IsKeyPressed(key))
+                if (Raylib.IsKeyDown(key))
                     pendingKeyboard[key] = true;
+
+            mouseDeltaAccumulator += Raylib.GetMouseDelta();
         }
 
         /// <summary>
@@ -54,6 +66,13 @@ namespace PurgeProtocol
                 return true;
             }
             return false;
+        }
+
+        public static Vector2 ConsumeMouseDelta()
+        {
+            Vector2 d = mouseDeltaAccumulator;
+            mouseDeltaAccumulator = Vector2.Zero;
+            return d;
         }
 
         /// <summary>Clear all buffered inputs (e.g. when starting a new run).</summary>

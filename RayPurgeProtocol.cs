@@ -73,6 +73,8 @@ class Raycaster
     static MenuSystem menu = new MenuSystem();
 
     static float interactionDistance = 1.0f;
+    static float shootCooldown = 0f;
+    const float SHOOT_COOLDOWN_TIME = 0.5f;
 
     // Ceiling and Floor texture arrays
     public static Texture2D floorAtlasTextures;
@@ -1203,6 +1205,8 @@ class Raycaster
 
     static void FixedUpdate()
     {
+        if (shootCooldown > 0f) shootCooldown -= fixedDeltaTime;
+
         HandleKeyboard();
         HandleMouse();
         HandleEntites();
@@ -1235,21 +1239,21 @@ class Raycaster
         float moveStep = moveSpeed * fixedDeltaTime;
         float rotationStep = rotationSpeed * fixedDeltaTime;
 
-        if (Raylib.IsKeyDown(KeyboardKey.D))
+        if (InputSystem.ConsumeKey(KeyboardKey.E))
         {
             // Rotate left using matrix multiplication
             playerEntity.playerController.Direction = Vector2.Transform(playerEntity.playerController.Direction, Matrix3x2.CreateRotation(rotationStep));
             playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(rotationStep));
         }
 
-        if (Raylib.IsKeyDown(KeyboardKey.A))
+        if (InputSystem.ConsumeKey(KeyboardKey.Q))
         {
             // Rotate right using matrix multiplication
             playerEntity.playerController.Direction = Vector2.Transform(playerEntity.playerController.Direction, Matrix3x2.CreateRotation(-rotationStep));
             playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(-rotationStep));
         }
 
-        if (Raylib.IsKeyDown(KeyboardKey.W))
+        if (InputSystem.ConsumeKey(KeyboardKey.W))
         {
             Vector2 newPos = playerEntity.transform.Position + playerEntity.playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
@@ -1259,7 +1263,7 @@ class Raycaster
             }
         }
 
-        if (Raylib.IsKeyDown(KeyboardKey.S))
+        if (InputSystem.ConsumeKey(KeyboardKey.S))
         {
             Vector2 newPos = playerEntity.transform.Position - playerEntity.playerController.Direction * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
@@ -1269,7 +1273,7 @@ class Raycaster
             }
         }
 
-        if (Raylib.IsKeyDown(KeyboardKey.Q))
+        if (InputSystem.ConsumeKey(KeyboardKey.A))
         {
             Vector2 newPos = playerEntity.transform.Position + new Vector2(playerEntity.playerController.Direction.Y, -playerEntity.playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
@@ -1279,7 +1283,7 @@ class Raycaster
             }
         }
 
-        if (Raylib.IsKeyDown(KeyboardKey.E))
+        if (InputSystem.ConsumeKey(KeyboardKey.D))
         {
             Vector2 newPos = playerEntity.transform.Position - new Vector2(playerEntity.playerController.Direction.Y, -playerEntity.playerController.Direction.X) * moveStep;
             if (newPos.X >= 0 && newPos.X < roomGenerator.tileMap.GetLength(0) && newPos.Y >= 0 && newPos.Y < roomGenerator.tileMap.GetLength(1) &&
@@ -1299,7 +1303,13 @@ class Raycaster
 
     private static void HandleMouse()
     {
-        Vector2 mouseDelta = Raylib.GetMouseDelta();
+        if (!Raylib.IsWindowFocused())
+        {
+            InputSystem.ConsumeMouseDelta(); // drain so it doesn't build up
+            return;
+        }
+
+        Vector2 mouseDelta = InputSystem.ConsumeMouseDelta();
         float mouseRotationStep = mouseRotationSpeed * fixedDeltaTime;
         Raylib.SetMousePosition(screenWidth / 2, screenHeight / 2); // Reset mouse position to center
 
@@ -1315,7 +1325,7 @@ class Raycaster
             playerEntity.playerController.CameraPlane = Vector2.Transform(playerEntity.playerController.CameraPlane, Matrix3x2.CreateRotation(-mouseRotationStep));
         }
 
-        if (InputSystem.ConsumeMouse(MouseButton.Left))
+        if ((InputSystem.ConsumeMouse(MouseButton.Left) || InputSystem.ConsumeKey(KeyboardKey.Space)) && shootCooldown <= 0f)
         {
             float wallDist;
             Entity hitEnemy = CastShootingRay(out wallDist);
@@ -1323,6 +1333,7 @@ class Raycaster
             ManaComponent manaComponent = playerEntity.GetComponent<ManaComponent>();
             if (manaComponent.current > 0)
             {
+                shootCooldown = SHOOT_COOLDOWN_TIME;
                 manaComponent.TakeMana(1);
 
                 //instantiate a bullet with lifetime as a health component
@@ -1334,7 +1345,7 @@ class Raycaster
                 bullet.AddComponent(new RaySpriteRenderer
                 {
                     Texture = textures["fireball"],
-                    spriteScale = 0.1f                    
+                    spriteScale = 0.1f
                 });
                 bullet.AddComponent(new BulletHealthComponent(50));
                 bullet.AddComponent(new MovementComponent(playerEntity.playerController.Direction, 20f));
