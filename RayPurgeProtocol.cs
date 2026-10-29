@@ -948,6 +948,7 @@ class Raycaster
         using (PerformanceMonitor.Measure(t => PerformanceMonitor.SpriteDrawTime = t))
         {
             DrawEntitys();
+            ParticleSystem.Draw();
         }
 
         //using (PerformanceMonitor.Measure(t => PerformanceMonitor.zBufferDrawTime = t))
@@ -1047,6 +1048,7 @@ class Raycaster
         InputSystem.Clear();
         entities.Clear();
         Inventory.Reset();
+        ParticleSystem.Clear();
 
         Debug.Print("Loading map...");
         LoadMap();
@@ -1065,6 +1067,8 @@ class Raycaster
     // release everything tied to a single run
     static void CleanupGame()
     {
+        Inventory.Reset();
+        ParticleSystem.Clear();
         entities.Clear();
         playerEntity = null;
         pathfindingSystem = null;
@@ -1291,6 +1295,8 @@ class Raycaster
         HandleEntites();
         PlayerRegeneration();
         LookForPowerUps();
+
+        ParticleSystem.Update(fixedDeltaTime);
     }
 
     private static void HandleEntites()
@@ -1452,6 +1458,14 @@ class Raycaster
                 hitEnemy.healthComponent?.TakeDamage(1);
                 Console.WriteLine("Hit enemy!");
 
+                ParticleSystem.SpawnBurst(
+                hitEnemy.transform.Position,
+                count: 8,
+                color: new Color(255, 220, 50, 255),
+                speed: 1.5f,
+                spread: 0.3f,
+                baseHeight: 0.5f);
+
                 if (hitEnemy.healthComponent.current <= 0 && CountEnemies() == 0) // TODO count enemies is iterative, maybe i should keep a number for enemy count
                 {
                     Entity item = new Entity();
@@ -1481,6 +1495,20 @@ class Raycaster
 
                 // Optional: Play hit sound
                 // Raylib.PlaySound(hitSound);
+            }
+            else if (wallDist < drawDistance)
+            {
+                // Gray dust burst on the wall surface
+                Vector2 wallHitPoint = playerEntity.transform.Position
+                                     + playerEntity.playerController.Direction * wallDist;
+
+                ParticleSystem.SpawnBurst(
+                    wallHitPoint,
+                    count: 6,
+                    color: new Color(180, 180, 180, 255),
+                    speed: 1.0f,
+                    spread: 0.1f,
+                    baseHeight: 0.5f);
             }
         }
     }
@@ -1542,5 +1570,125 @@ class Raycaster
         }
 
         foreach (var e in toRemove) roomItems.Remove(e);
+    }
+
+    static class ParticleSystem
+    {
+        struct Particle
+        {
+            public Vector2 position;
+            public Vector2 velocity;
+            public float height;         // world units above floor
+            public float verticalVel;
+            public float lifetime;
+            public float maxLifetime;
+            public Color color;
+            public float size;           // world units
+        }
+
+        static readonly List<Particle> particles = new();
+
+        public static void Clear() => particles.Clear();
+
+        public static void Update(float dt)
+        {
+            for (int i = particles.Count - 1; i >= 0; i--)
+            {
+                var p = particles[i];
+
+                p.position += p.velocity * dt;
+                p.velocity *= 0.90f;                 // air drag
+
+                p.height += p.verticalVel * dt;
+                p.verticalVel -= 9.8f * dt;
+
+                if (p.height < 0.05f)                // bounce on floor
+                {
+                    p.height = 0.05f;
+                    p.verticalVel = -p.verticalVel * 0.35f;
+                    p.velocity *= 0.6f;
+                }
+
+                p.lifetime -= dt;
+                if (p.lifetime <= 0f) { particles.RemoveAt(i); continue; }
+
+                particles[i] = p;
+            }
+        }
+
+        public static void SpawnBurst(Vector2 worldPos, int count, Color color,
+                                      float speed, float spread, float baseHeight = 0.5f)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float angle = (float)(RandomR.value * Math.PI * 2.0);
+                float s = speed * (0.4f + (float)RandomR.value * 0.6f);
+
+                float life = 0.5f + (float)RandomR.value * 0.4f;
+
+                particles.Add(new Particle
+                {
+                    position = worldPos + new Vector2(
+                        ((float)RandomR.value - 0.5f) * spread,
+                        ((float)RandomR.value - 0.5f) * spread),
+                    velocity = new Vector2(MathF.Cos(angle) * s, MathF.Sin(angle) * s),
+                    height = baseHeight + ((float)RandomR.value - 0.5f) * 0.2f,
+                    verticalVel = 1.0f + (float)RandomR.value * 1.5f,
+                    lifetime = life,
+                    maxLifetime = life,
+                    color = color,
+                    size = 0.025f + (float)RandomR.value * 0.025f
+                });
+            }
+        }
+
+        public static void Draw()
+        {
+            if (particles.Count == 0 || playerEntity == null) return;
+
+            Vector2 pos = playerEntity.transform.Position;
+            Vector2 dir = playerEntity.playerController.Direction;
+            Vector2 plane = playerEntity.playerController.CameraPlane;
+
+            float invDet = 1.0f / (plane.X * dir.Y - dir.X * plane.Y);
+            int halfW = internalScreenWidth / 2;
+            int halfH = internalScreenHeight / 2;
+
+            // Far to near so nearer particles overlap correctly
+            particles.Sort((a, b) =>
+                Vector2.DistanceSquared(b.position, pos)
+                    .CompareTo(Vector2.DistanceSquared(a.position, pos)));
+
+            Raylib.BeginBlendMode(BlendMode.Alpha);
+
+            foreach (var p in particles)
+            {
+                Vector2 rel = p.position - pos;
+                float transformX = invDet * (dir.Y * rel.X - dir.X * rel.Y);
+                float transformY = invDet * (-plane.Y * rel.X + plane.X * rel.Y);
+
+                if (transformY <= 0.1f) continue;                         // behind camera
+
+                int screenX = (int)(halfW * (1f + transformX / transformY));
+                if (screenX < 0 || screenX >= internalScreenWidth) continue;
+
+                // Wall occlusion (small epsilon so particles spawned exactly on wall aren't culled)
+                if (transformY > zBuffer[screenX] + 0.05f) continue;
+
+                float heightScale = internalScreenHeight / transformY;
+                float floorY = halfH + heightScale * 0.5f;           // camHeight = 0.5
+                float screenY = floorY - p.height * heightScale;
+
+                int pxSize = Math.Max(1, (int)(p.size * heightScale));
+
+                float alpha = Math.Min(1f, p.lifetime / (p.maxLifetime * 0.5f));
+                Color c = new Color(p.color.R, p.color.G, p.color.B, (byte)(alpha * 255));
+
+                Raylib.DrawRectangle(screenX - pxSize / 2, (int)screenY - pxSize / 2,
+                                     pxSize, pxSize, c);
+            }
+
+            Raylib.EndBlendMode();
+        }
     }
 }
