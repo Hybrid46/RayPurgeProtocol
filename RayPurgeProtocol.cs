@@ -906,6 +906,9 @@ class Raycaster
 
         foreach (Entity entity in entities)
         {
+            //skip powerups
+            if (entity.powerUpComponent != null) continue;
+
             Vector2 toSprite = entity.transform.Position - playerEntity.transform.Position;
             float t = Vector2.Dot(toSprite, playerEntity.playerController.Direction);
 
