@@ -271,8 +271,11 @@ class Raycaster
 
             if (randomItems == 0) continue;
 
-            List<Vector2> itemCoords = new List<Vector2>(randomItems);
             List<Vector2IntR> roomCoords = new List<Vector2IntR>(room.coords);
+            // Never ask for more items than the room has floor tiles
+            randomItems = Math.Min(randomItems, roomCoords.Count);
+
+            List<Vector2> itemCoords = new List<Vector2>(randomItems);
 
             if (roomCoords.Count < itemCoords.Count) continue;
 
