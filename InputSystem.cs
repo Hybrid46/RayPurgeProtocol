@@ -23,6 +23,8 @@ namespace PurgeProtocol
             [KeyboardKey.S] = false,
             [KeyboardKey.D] = false,
             [KeyboardKey.F] = false,
+            [KeyboardKey.H] = false,
+            [KeyboardKey.M] = false,
             [KeyboardKey.Space] = false,
         };
 

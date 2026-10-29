@@ -633,6 +633,48 @@ class Raycaster
         }
     }
 
+    static void DrawInventory()
+    {
+        const int ICON_SIZE = 48;
+        const int PADDING = 16;
+
+        int startX = screenWidth - (ICON_SIZE * 2 + PADDING + 20) - 20;
+        int startY = screenHeight - ICON_SIZE - 40;
+
+        // Background panel
+        Raylib.DrawRectangle(startX - 10, startY - 10,
+                             ICON_SIZE * 2 + PADDING + 20, ICON_SIZE + 50,
+                             new Color(0, 0, 0, 160));
+        Raylib.DrawRectangleLines(startX - 10, startY - 10,
+                                  ICON_SIZE * 2 + PADDING + 20, ICON_SIZE + 50,
+                                  Color.DarkGray);
+
+        DrawSlot("bread", Inventory.breadCount, startX, startY, "H");
+        DrawSlot("mushroom", Inventory.mushroomCount, startX + ICON_SIZE + PADDING, startY, "M");
+
+        void DrawSlot(string key, int count, int x, int y, string hotkey)
+        {
+            if (!textures.TryGetValue(key, out Texture2D tex)) return;
+
+            Color tint = count > 0 ? Color.White : new Color(90, 90, 90, 255);
+
+            Raylib.DrawTexturePro(
+                tex,
+                new Rectangle(0, 0, tex.Width, tex.Height),
+                new Rectangle(x, y, ICON_SIZE, ICON_SIZE),
+                Vector2.Zero, 0f, tint);
+
+            string label = $"[{hotkey}] x{count}";
+            int labelSize = 16;
+            int labelW = Raylib.MeasureText(label, labelSize);
+            int labelX = x + (ICON_SIZE - labelW) / 2;
+            int labelY = y + ICON_SIZE + 6;
+
+            Raylib.DrawText(label, labelX + 1, labelY + 1, labelSize, Color.Black);
+            Raylib.DrawText(label, labelX, labelY, labelSize, Color.White);
+        }
+    }
+
     // Draw crosshairs at the center of the screen
     private static void DrawMouse()
     {
@@ -992,8 +1034,9 @@ class Raycaster
         totalFrameTimeMs = 0;
 
         InputSystem.Clear();
-
         entities.Clear();
+        Inventory.Reset();
+
         Debug.Print("Loading map...");
         LoadMap();
         Debug.Print("Creating player...");
@@ -1044,6 +1087,7 @@ class Raycaster
         Raylib.DrawFPS(10, 10);
         DrawPlayerHealth();
         DrawPlayerMana();
+        DrawInventory();
         DrawMouse();
 
         Raylib.EndDrawing();
@@ -1320,7 +1364,22 @@ class Raycaster
         if (InputSystem.ConsumeKey(KeyboardKey.F))
         {
             Interact();
-            //other interactions
+        }
+
+        if (InputSystem.ConsumeKey(KeyboardKey.H))
+        {
+            if (Inventory.UseBread(playerEntity))
+            {
+                Console.WriteLine($"Ate bread. Remaining: {Inventory.breadCount}");
+            }
+        }
+
+        if (InputSystem.ConsumeKey(KeyboardKey.M))
+        {
+            if (Inventory.UseMushroom(playerEntity))
+            {
+                Console.WriteLine($"Drank mushroom. Remaining: {Inventory.mushroomCount}");
+            }
         }
     }
 
@@ -1432,12 +1491,42 @@ class Raycaster
 
         if (roomItems == null || roomItems.Count == 0) return;
 
+        List<Entity> toRemove = new List<Entity>();
+
         foreach (Entity item in roomItems)
         {
-            if (Vector2.Distance(item.transform.Position, playerEntity.transform.Position) < 0.5f)
+            if (item.destroy) { toRemove.Add(item); continue; }
+
+            if (Vector2.Distance(item.transform.Position, playerEntity.transform.Position) >= 0.5f)
+                continue;
+
+            if (item.powerUpComponent == null) continue;
+
+            int effectType = item.powerUpComponent.effectType;
+
+            switch (effectType)
             {
-                item.powerUpComponent.PickUp(playerEntity);
+                case 0:
+                    Inventory.breadCount++;
+                    Console.WriteLine($"Picked up bread. Total: {Inventory.breadCount}");
+                    item.powerUpComponent.PickUp(playerEntity);
+                    break;
+                case 1:
+                    Inventory.mushroomCount++;
+                    Console.WriteLine($"Picked up mushroom. Total: {Inventory.mushroomCount}");
+                    item.powerUpComponent.PickUp(playerEntity);
+                    break;
+                case 2:
+                    item.powerUpComponent.PickUp(playerEntity);
+                    break;
+                default:
+                    break;
             }
+
+            item.Destroy();
+            toRemove.Add(item);
         }
+
+        foreach (var e in toRemove) roomItems.Remove(e);
     }
 }
