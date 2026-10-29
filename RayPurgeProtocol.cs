@@ -76,6 +76,9 @@ class Raycaster
     static float shootCooldown = 0f;
     const float SHOOT_COOLDOWN_TIME = 0.5f;
 
+    static float itemUseCooldown = 0f;
+    const float ITEM_USE_COOLDOWN_TIME = 10f;
+
     // Ceiling and Floor texture arrays
     public static Texture2D floorAtlasTextures;
     public static Texture2D ceilingAtlasTextures;
@@ -210,6 +213,11 @@ class Raycaster
         foreach (Room room in roomGenerator.rooms)
         {
             if (room == playerRoom) continue;
+
+            // For fast game debug
+            //if (room != playerRoom) continue;
+            //Inventory.breadCount = 10;
+            //Inventory.mushroomCount = 10;
 
             foreach (Vector2IntR pos in room.coords)
             {
@@ -656,7 +664,10 @@ class Raycaster
         {
             if (!textures.TryGetValue(key, out Texture2D tex)) return;
 
-            Color tint = count > 0 ? Color.White : new Color(90, 90, 90, 255);
+            bool onCooldown = itemUseCooldown > 0f;
+            Color tint = count > 0
+                ? (onCooldown ? new Color(150, 150, 150, 255) : Color.White)
+                : new Color(90, 90, 90, 255);
 
             Raylib.DrawTexturePro(
                 tex,
@@ -1273,6 +1284,7 @@ class Raycaster
     static void FixedUpdate()
     {
         if (shootCooldown > 0f) shootCooldown -= fixedDeltaTime;
+        if (itemUseCooldown > 0f) itemUseCooldown -= fixedDeltaTime;
 
         HandleKeyboard();
         HandleMouse();
@@ -1368,16 +1380,18 @@ class Raycaster
 
         if (InputSystem.ConsumeKey(KeyboardKey.H))
         {
-            if (Inventory.UseBread(playerEntity))
+            if (itemUseCooldown <= 0f && Inventory.UseBread(playerEntity))
             {
+                itemUseCooldown = ITEM_USE_COOLDOWN_TIME;
                 Console.WriteLine($"Ate bread. Remaining: {Inventory.breadCount}");
             }
         }
 
         if (InputSystem.ConsumeKey(KeyboardKey.M))
         {
-            if (Inventory.UseMushroom(playerEntity))
+            if (itemUseCooldown <= 0f && Inventory.UseMushroom(playerEntity))
             {
+                itemUseCooldown = ITEM_USE_COOLDOWN_TIME;
                 Console.WriteLine($"Drank mushroom. Remaining: {Inventory.mushroomCount}");
             }
         }
