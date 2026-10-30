@@ -159,7 +159,7 @@ class Raycaster
         floorAtlasTextures = default;
         ceilingAtlasTextures = default;
 
-        roomGenerator = new RoomGenerator(50, 50, 2, 10, 2, 10, Settings.extraDoorChance);
+        roomGenerator = new RoomGenerator(40, 40, 2, 10, 2, 10, Settings.extraDoorChance);
         roomGenerator.Generate();
         GenerateFloorCeilingAtlasTextures();
 
@@ -1434,8 +1434,8 @@ class Raycaster
 
             ManaComponent manaComponent = playerEntity.GetComponent<ManaComponent>();
 
-            manaComponent.TakeMana(1);
             shootCooldown = manaComponent.current > 0 ? SHOOT_COOLDOWN_TIME : SHOOT_COOLDOWN_TIME * 4f;
+            manaComponent.TakeMana(1);
 
             //instantiate a bullet with lifetime as a health component
             Entity bullet = new Entity();

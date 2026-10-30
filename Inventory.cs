@@ -11,8 +11,8 @@ namespace PurgeProtocol
         public static int breadCount = 0;
         public static int mushroomCount = 0;
 
-        public const int BREAD_HEAL = 10;
-        public const int MUSHROOM_MANA = 20;
+        public const int BREAD_HEAL = 15;
+        public const int MUSHROOM_MANA = 25;
 
         public static void Reset()
         {
