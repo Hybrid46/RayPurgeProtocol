@@ -159,7 +159,7 @@ class Raycaster
         floorAtlasTextures = default;
         ceilingAtlasTextures = default;
 
-        roomGenerator = new RoomGenerator(40, 40, 2, 10, 2, 10, Settings.extraDoorChance);
+        roomGenerator = new RoomGenerator(Settings.mapSize, Settings.mapSize, 2, 10, 2, 10, Settings.extraDoorChance);
         roomGenerator.Generate();
         GenerateFloorCeilingAtlasTextures();
 

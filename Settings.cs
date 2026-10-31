@@ -32,6 +32,7 @@ public static class Settings
     public static int difficulty = 1;            // 0=Easy, 1=Normal, 2=Hard
     public static float enemySpawnChance = 0.25f; // 0..1
     public static float extraDoorChance = 0f;     // 0..1
+    public static int mapSize = 40;               // 20-100, step 10
 
     private const string SETTINGS_FILE = "settings.cfg";
 
@@ -57,6 +58,7 @@ public static class Settings
         difficulty = 1;
         enemySpawnChance = 0.25f;
         extraDoorChance = 0f;
+        mapSize = 40;
     }
 
     public static void LoadSettings()
@@ -149,6 +151,13 @@ public static class Settings
                 float.TryParse(doorStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float doorVal))
                 extraDoorChance = Math.Clamp(doorVal, 0f, 1f);
 
+            if (loadedSettings.TryGetValue(nameof(mapSize), out string mapSizeStr) &&
+                int.TryParse(mapSizeStr, out int mapSizeVal))
+                {
+                    // snap to nearest 10 and clamp
+                    mapSize = Math.Clamp((int)(Math.Round(mapSizeVal / 10.0) * 10), 20, 100);
+                }
+
             fixedDeltaTime = 1.0f / Math.Max(targetUPS, 1);
 
             Console.WriteLine("Settings loaded successfully.");
@@ -198,6 +207,7 @@ public static class Settings
                 writer.WriteLine($"{nameof(difficulty)}={difficulty}");
                 writer.WriteLine($"{nameof(enemySpawnChance)}={enemySpawnChance.ToString(CultureInfo.InvariantCulture)}");
                 writer.WriteLine($"{nameof(extraDoorChance)}={extraDoorChance.ToString(CultureInfo.InvariantCulture)}");
+                writer.WriteLine($"{nameof(mapSize)}={mapSize}");
             }
             Console.WriteLine("Settings saved successfully.");
         }
