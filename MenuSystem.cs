@@ -179,6 +179,13 @@ public class MenuSystem
                 {
                     new MenuItem
                     {
+                        Label = "Map Size",
+                        GetValueString = () => $"{Settings.mapSize}x{Settings.mapSize}",
+                        AdjustLeft = () => Settings.mapSize = Math.Max(20, Settings.mapSize - 10),
+                        AdjustRight = () => Settings.mapSize = Math.Min(100, Settings.mapSize + 10),
+                    },
+                    new MenuItem
+                    {
                         Label = "Enemy Spawn",
                         GetValueString = () => $"{Settings.enemySpawnChance * 100:F0}%",
                         AdjustLeft = () => Settings.enemySpawnChance = Math.Max(0f, Settings.enemySpawnChance - 0.05f),
