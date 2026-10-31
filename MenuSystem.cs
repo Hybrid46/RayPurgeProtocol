@@ -21,10 +21,53 @@ public class MenuSystem
         public bool IsValue => GetValueString != null;
     }
 
-    private static readonly (int w, int h)[] ResolutionPresets =
+    private static int currentResolutionIndex = -1;
+
+    private static readonly (int w, int h)[] ResolutionPresets = GetResolutionPresets();
+
+    private static (int w, int h)[] GetResolutionPresets()
     {
-        (320, 240), (400, 300), (512, 384), (640, 480), (800, 600)
-    };
+        int nativeW = Raylib.GetMonitorWidth(0);
+        int nativeH = Raylib.GetMonitorHeight(0);
+
+        return new (int w, int h)[]
+    {
+        (nativeW, nativeH),
+        ((int)(nativeW * 0.9f), (int)(nativeH * 0.9f)),
+        ((int)(nativeW * 0.8f), (int)(nativeH * 0.8f)),
+        ((int)(nativeW * 0.7f), (int)(nativeH * 0.7f)),
+        ((int)(nativeW * 0.6f), (int)(nativeH * 0.6f)),
+        ((int)(nativeW * 0.5f), (int)(nativeH * 0.5f)),
+        ((int)(nativeW * 0.4f), (int)(nativeH * 0.4f)),
+        ((int)(nativeW * 0.3f), (int)(nativeH * 0.3f)),
+        ((int)(nativeW * 0.2f), (int)(nativeH * 0.2f)),
+        ((int)(nativeW * 0.1f), (int)(nativeH * 0.1f)),
+        // --- Retro 4:3 (raycaster aesthetic, low internal res = fast) ---
+        (320, 240),
+        (400, 300),
+        (512, 384),
+        (640, 480),
+        (800, 600),
+        (1024, 768),
+        (1280, 960),
+        (1600, 1200),
+
+        // --- Modern 16:9 ---
+        (1280, 720),   // HD
+        (1366, 768),   // very common on cheap/older laptops
+        (1600, 900),   // HD+
+        (1920, 1080),  // Full HD — most common monitor today
+        (2560, 1440),  // QHD
+        (3840, 2160),  // 4K — heavy (1920×1080 internal raycaster)
+
+        // --- 16:10 (MacBooks, pro monitors) ---
+        (1920, 1200),
+        (2560, 1600),
+
+        // --- 21:9 ultrawide ---
+        (3440, 1440),
+        };
+    }
 
     public void Reset()
     {
@@ -32,6 +75,7 @@ public class MenuSystem
         selectedIndex = 0;
         wantsToStartGame = false;
         wantsToExit = false;
+        currentResolutionIndex = -1;
     }
 
     public void Update()
@@ -134,17 +178,29 @@ public class MenuSystem
     private static int GetResolutionIndex()
     {
         for (int i = 0; i < ResolutionPresets.Length; i++)
-            if (ResolutionPresets[i].w == Settings.internalScreenWidth && ResolutionPresets[i].h == Settings.internalScreenHeight)
+            if (ResolutionPresets[i].w == Settings.internalScreenWidth &&
+                ResolutionPresets[i].h == Settings.internalScreenHeight)
                 return i;
-        return 1;
+        return -1;
     }
 
     private static void SetResolutionByIndex(int index)
     {
         int len = ResolutionPresets.Length;
         index = ((index % len) + len) % len;
+        currentResolutionIndex = index;
         Settings.internalScreenWidth = ResolutionPresets[index].w;
         Settings.internalScreenHeight = ResolutionPresets[index].h;
+    }
+
+    private static void AdjustResolution(int direction)
+    {
+        if (currentResolutionIndex < 0)
+        {
+            currentResolutionIndex = GetResolutionIndex();
+            if (currentResolutionIndex < 0) currentResolutionIndex = 0;
+        }
+        SetResolutionByIndex(currentResolutionIndex + direction);
     }
 
     private List<MenuItem> GetCurrentItems()
@@ -216,8 +272,8 @@ public class MenuSystem
                     {
                         Label = "Resolution",
                         GetValueString = () => $"{Settings.internalScreenWidth}x{Settings.internalScreenHeight}",
-                        AdjustLeft = () => SetResolutionByIndex(GetResolutionIndex() - 1),
-                        AdjustRight = () => SetResolutionByIndex(GetResolutionIndex() + 1),
+                        AdjustLeft  = () => AdjustResolution(-1),
+                        AdjustRight = () => AdjustResolution(+1),
                     },
                     new MenuItem
                     {
